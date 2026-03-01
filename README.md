@@ -115,7 +115,12 @@ Pull requests welcome. If your device isn't detected correctly, open an issue wi
 ```bash
 python scanner.py
 ```
+## Credits
+
+This project was built with AI assistance (Claude by Anthropic) for code generation,
+with direction, testing, and debugging by the author. All code has been tested on
+real hardware — Virpil HOTAS setup on Arch Linux.
 
 ## License
 
-MIT
+GPL v3.
