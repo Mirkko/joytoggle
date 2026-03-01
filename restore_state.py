@@ -6,34 +6,37 @@ Must run as root.
 import sys
 import os
 import json
+import time
 
-sys.path.insert(0, '/usr/lib/joytoggle')
-from toggle_device import disable_device, enable_device
+BIND_PATH   = '/sys/bus/usb/drivers/usbhid/bind'
+UNBIND_PATH = '/sys/bus/usb/drivers/usbhid/unbind'
+STATE_FILE  = '/var/lib/joytoggle/state.json'
 
-STATE_FILE = '/var/lib/joytoggle/state.json'
+def is_bound(iface_id):
+    """Check if interface is already bound to usbhid."""
+    return os.path.exists(f'/sys/bus/usb/drivers/usbhid/{iface_id}')
 
-def get_all_interfaces(usb_sysfs_path):
-    if not os.path.exists(usb_sysfs_path):
-        return []
-    parent        = os.path.dirname(usb_sysfs_path)
-    device_prefix = os.path.basename(usb_sysfs_path).split(':')[0]
+def disable_device(iface_id):
+    if not is_bound(iface_id):
+        print(f"Already disabled {iface_id} (skipping)")
+        return
     try:
-        return sorted(e for e in os.listdir(parent) if e.startswith(device_prefix + ':'))
-    except OSError:
-        return []
+        with open(UNBIND_PATH, 'w') as f:
+            f.write(iface_id)
+        print(f"Disabled {iface_id}")
+    except OSError as e:
+        print(f"Could not disable {iface_id}: {e} (skipping)")
 
-def find_usb_path(interface_id):
-    """Search sysfs for a given interface ID."""
-    base = '/sys/bus/usb/drivers/usbhid'
-    candidate = os.path.join(base, interface_id)
-    if os.path.exists(candidate):
-        return candidate
-    # Also check unbound devices
-    for root, dirs, _ in os.walk('/sys/devices'):
-        for d in dirs:
-            if d == interface_id:
-                return os.path.join(root, d)
-    return None
+def enable_device(iface_id):
+    if is_bound(iface_id):
+        print(f"Already enabled {iface_id} (skipping)")
+        return
+    try:
+        with open(BIND_PATH, 'w') as f:
+            f.write(iface_id)
+        print(f"Enabled {iface_id}")
+    except OSError as e:
+        print(f"Could not enable {iface_id}: {e} (skipping)")
 
 if __name__ == '__main__':
     if os.geteuid() != 0:
@@ -44,13 +47,15 @@ if __name__ == '__main__':
         print("No state file found, nothing to restore.")
         sys.exit(0)
 
+    time.sleep(2)
+
     with open(STATE_FILE) as f:
         state = json.load(f)
 
     for iface_id, enabled in state.items():
         if not enabled:
-            print(f"Disabling {iface_id}...")
             disable_device(iface_id)
         else:
-            print(f"Enabling {iface_id}...")
             enable_device(iface_id)
+
+    sys.exit(0)

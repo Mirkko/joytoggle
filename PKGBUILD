@@ -1,11 +1,12 @@
-# Maintainer: Mikodzi <your@email.com>
+# Maintainer: Mikodzi <mirek@utumno.cc>
 pkgname=joytoggle
 pkgver=1.0.0
-pkgrel=1
+pkgrel=2
 pkgdesc="Enable or disable joystick and sim controller devices without unplugging"
 arch=('any')
 url="https://github.com/Mirkko/joytoggle"
 license=('MIT')
+install=joytoggle.install
 depends=(
     'python'
     'python-gobject'
@@ -15,18 +16,24 @@ depends=(
     'systemd'
 )
 source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/heads/main.tar.gz")
-sha256sums=('SKIP')  # replace with actual sha256 after tagging a release
+sha256sums=('76a31be014652d2c929a2025554779a9f4b8c767bf9a500dd3907f15d516f93a')
 
 package() {
     cd "$srcdir/joytoggle-main"
 
     # App files
     install -dm755 "$pkgdir/usr/lib/joytoggle"
-    install -m755 app.py             "$pkgdir/usr/lib/joytoggle/app.py"
-    install -m644 scanner.py         "$pkgdir/usr/lib/joytoggle/scanner.py"
-    install -m644 state.py           "$pkgdir/usr/lib/joytoggle/state.py"
-    install -m755 toggle_device.py   "$pkgdir/usr/lib/joytoggle/toggle_device.py"
-    install -m755 restore_state.py   "$pkgdir/usr/lib/joytoggle/restore_state.py"
+    install -m755 app.py           "$pkgdir/usr/lib/joytoggle/app.py"
+    install -m644 scanner.py       "$pkgdir/usr/lib/joytoggle/scanner.py"
+    install -m644 state.py         "$pkgdir/usr/lib/joytoggle/state.py"
+    install -m755 toggle_device.py "$pkgdir/usr/lib/joytoggle/toggle_device.py"
+    install -m755 restore_state.py "$pkgdir/usr/lib/joytoggle/restore_state.py"
+
+    # Command line launcher
+    install -Dm755 /dev/stdin "$pkgdir/usr/bin/joytoggle" << EOF
+#!/usr/bin/env bash
+exec /usr/bin/python /usr/lib/joytoggle/app.py "\$@"
+EOF
 
     # polkit policy
     install -Dm644 org.joytoggle.policy \
@@ -34,9 +41,10 @@ package() {
 
     # systemd service
     install -Dm644 /dev/stdin "$pkgdir/usr/lib/systemd/system/joytoggle.service" << EOF
-[Unit]
+[[Unit]
 Description=JoyToggle - restore joystick device states
-After=sysinit.target local-fs.target
+After=systemd-udev-settle.service
+Wants=systemd-udev-settle.service
 
 [Service]
 Type=oneshot
@@ -63,21 +71,4 @@ EOF
 
     # License
     install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE" 2>/dev/null || true
-}
-
-post_install() {
-    systemctl daemon-reload
-    systemctl enable --now joytoggle.service
-    echo "JoyToggle installed. Launch from your app launcher or run:"
-    echo "  python /usr/lib/joytoggle/app.py"
-}
-
-post_upgrade() {
-    systemctl daemon-reload
-    systemctl restart joytoggle.service
-}
-
-post_remove() {
-    systemctl disable --now joytoggle.service 2>/dev/null || true
-    systemctl daemon-reload
 }
