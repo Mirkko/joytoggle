@@ -76,6 +76,7 @@ success "App files installed"
 # ── Create system state directory ─────────────────────────────
 info "Creating system state directory..."
 sudo mkdir -p /var/lib/joytoggle
+sudo chown $USER:$USER /var/lib/joytoggle
 success "State directory ready"
 
 # ── Install polkit policy ─────────────────────────────────────

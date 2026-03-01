@@ -16,7 +16,7 @@ depends=(
     'systemd'
 )
 source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/heads/main.tar.gz")
-sha256sums=('76a31be014652d2c929a2025554779a9f4b8c767bf9a500dd3907f15d516f93a')
+sha256sums=('3c57184148b78dd43b5d7497020bec28d63e49b30e68d4bb198acdd848d7590e')
 
 package() {
     cd "$srcdir/joytoggle-main"
@@ -41,7 +41,7 @@ EOF
 
     # systemd service
     install -Dm644 /dev/stdin "$pkgdir/usr/lib/systemd/system/joytoggle.service" << EOF
-[[Unit]
+[Unit]
 Description=JoyToggle - restore joystick device states
 After=systemd-udev-settle.service
 Wants=systemd-udev-settle.service
