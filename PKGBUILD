@@ -16,7 +16,7 @@ depends=(
     'systemd'
 )
 source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/heads/main.tar.gz")
-sha256sums=('63694b9a2afecd052e6dcfd1035375674a3ac64dcc9c387e0fe6cc4246c8a279')
+sha256sums=('cc2d73220b50c363a5fcfc1c8f0955ae2b641e0565e33a19ad5ca22638170479')
 
 package() {
     cd "$srcdir/joytoggle-main"
