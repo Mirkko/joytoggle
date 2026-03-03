@@ -160,7 +160,7 @@ class DeviceRow(Adw.ExpanderRow):
 class JoyToggleWindow(Adw.ApplicationWindow):
     def __init__(self, app):
         super().__init__(application=app)
-        self.set_title('Joystick Manager')
+        self.set_title('JoyToggle')
         self.set_default_size(500, -1)
         self.set_resizable(False)
 
@@ -376,7 +376,9 @@ class JoyToggleApp(Adw.Application):
         self.connect('activate', self._on_activate)
 
     def _on_activate(self, app):
-        JoyToggleWindow(app).present()
+        win = JoyToggleWindow(app)
+        win.set_icon_name('joytoggle')
+        win.present()
 
 
 if __name__ == '__main__':

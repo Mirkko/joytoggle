@@ -14,25 +14,35 @@ import os
 BIND_PATH   = '/sys/bus/usb/drivers/usbhid/bind'
 UNBIND_PATH = '/sys/bus/usb/drivers/usbhid/unbind'
 
+def is_bound(iface_id):
+    """Check if interface is currently bound to usbhid driver."""
+    return os.path.exists(f'/sys/bus/usb/drivers/usbhid/{iface_id}')
+
 def get_interface_id(path):
     return os.path.basename(path)
 
-def disable_device(interface_id):
+def disable_device(iface_id):
+    if not is_bound(iface_id):
+        print(f"Already disabled {iface_id} (skipping)")
+        return  # not an error
     try:
         with open(UNBIND_PATH, 'w') as f:
-            f.write(interface_id)
-        print(f"OK: disabled {interface_id}")
+            f.write(iface_id)
+        print(f"OK: disabled {iface_id}")
     except OSError as e:
-        print(f"ERROR: could not disable {interface_id}: {e}")
+        print(f"ERROR: could not disable {iface_id}: {e}")
         sys.exit(1)
 
-def enable_device(interface_id):
+def enable_device(iface_id):
+    if is_bound(iface_id):
+        print(f"Already enabled {iface_id} (skipping)")
+        return  # not an error
     try:
         with open(BIND_PATH, 'w') as f:
-            f.write(interface_id)
-        print(f"OK: enabled {interface_id}")
+            f.write(iface_id)
+        print(f"OK: enabled {iface_id}")
     except OSError as e:
-        print(f"ERROR: could not enable {interface_id}: {e}")
+        print(f"ERROR: could not enable {iface_id}: {e}")
         sys.exit(1)
 
 def is_currently_enabled(usb_sysfs_path):
