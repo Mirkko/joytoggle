@@ -15,8 +15,8 @@ depends=(
     'polkit'
     'systemd'
 )
-source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/heads/main.tar.gz")
-sha256sums=('b5d0aa65a2e8a15a4879bc90ed7469821e4db6fc2df826ce393e77e6bae65682')
+source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/tags/v$pkgver.tar.gz")
+sha256sums=('442f786c286f3507c41b7ec868a485d09f0496b3dd123dd17ef726187da95038')
 
 package() {
     cd "$srcdir/joytoggle-main"
