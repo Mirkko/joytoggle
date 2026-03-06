@@ -11,7 +11,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from scanner import get_devices_with_cache
-from state   import load_state, save_state, load_hidden, save_hidden
+from state   import load_state, save_state, load_hidden, save_hidden, load_shown, save_shown
 
 TOGGLE_SCRIPT = '/usr/lib/joytoggle/toggle_device.py'
 
@@ -166,10 +166,13 @@ class JoyToggleWindow(Adw.ApplicationWindow):
 
         self.state   = load_state()
         self.hidden  = load_hidden()
+        self.shown   = load_shown()
         self.devices = []
 
-        self._device_rows = []
-        self._hidden_rows = []
+        self._device_rows    = []
+        self._hidden_rows    = []
+        self._hidden_expander  = None
+        self._hidden_expanded  = False
 
         self._build_ui()
         self._load_devices()
@@ -226,8 +229,8 @@ class JoyToggleWindow(Adw.ApplicationWindow):
         self.outer_box.append(self.devices_group)
 
         self.hidden_group = Adw.PreferencesGroup()
-        self.hidden_group.set_title('Hidden Devices')
         self.hidden_group.set_visible(False)
+        self.hidden_group.set_margin_top(12)
         self.outer_box.append(self.hidden_group)
 
         self.empty_label = Gtk.Label(
@@ -243,8 +246,10 @@ class JoyToggleWindow(Adw.ApplicationWindow):
     def _clear_groups(self):
         for row in self._device_rows:
             self.devices_group.remove(row)
-        for row in self._hidden_rows:
-            self.hidden_group.remove(row)
+        if self._hidden_expander is not None:
+            self._hidden_expanded = self._hidden_expander.get_expanded()
+            self.hidden_group.remove(self._hidden_expander)
+            self._hidden_expander = None
         self._device_rows = []
         self._hidden_rows = []
 
@@ -262,6 +267,14 @@ class JoyToggleWindow(Adw.ApplicationWindow):
         self.empty_label.set_visible(False)
         self.devices_group.set_visible(True)
 
+        # Deduplicate by iface_id — multiple kernel input nodes can share one USB interface
+        seen_ifaces = {}
+        for d in raw:
+            iface_id = get_iface_id(d)
+            if iface_id not in seen_ifaces:
+                seen_ifaces[iface_id] = d
+        raw = list(seen_ifaces.values())
+
         hidden_devices = []
 
         for d in raw:
@@ -276,31 +289,50 @@ class JoyToggleWindow(Adw.ApplicationWindow):
 
             self.devices.append(d)
 
-            if d['autohide'] or iface_id in self.hidden:
+            is_autohidden  = d['autohide'] and iface_id not in self.shown
+            is_man_hidden  = iface_id in self.hidden
+            if is_autohidden or is_man_hidden:
                 hidden_devices.append((iface_id, d))
             else:
                 row = DeviceRow(d, self._on_toggle, self._on_hide)
                 self.devices_group.add(row)
                 self._device_rows.append(row)
 
-        for iface_id, d in hidden_devices:
-            row = self._make_hidden_row(d, iface_id)
-            self.hidden_group.add(row)
-            self._hidden_rows.append(row)
+        if hidden_devices:
+            n        = len(hidden_devices)
+            expander = Adw.ExpanderRow()
+            expander.set_title('Hidden Devices')
+            expander.set_subtitle(f'{n} device{"s" if n != 1 else ""}')
+            expander.set_expanded(self._hidden_expanded)
+            for iface_id, d in hidden_devices:
+                row = self._make_hidden_row(d, iface_id)
+                expander.add_row(row)
+                self._hidden_rows.append(row)
+            self._hidden_expander = expander
+            self.hidden_group.add(expander)
+            self.hidden_group.set_visible(True)
+        else:
+            self.hidden_group.set_visible(False)
 
-        self.hidden_group.set_visible(bool(hidden_devices))
         self._update_banner()
 
     def _make_hidden_row(self, device, iface_id):
         row = Adw.ActionRow()
         row.set_title(device['name'])
-        row.set_subtitle('Auto-hidden' if device['autohide'] else 'Hidden by user')
+        is_manual = iface_id in self.hidden
+        row.set_subtitle('Hidden by user' if is_manual else 'Auto-hidden')
         row.add_prefix(Gtk.Image.new_from_icon_name('view-conceal-symbolic'))
-        if not device['autohide']:
-            btn = Gtk.Button(label='Restore')
+        if is_manual:
+            btn = Gtk.Button(label='Unhide')
             btn.add_css_class('flat')
             btn.set_valign(Gtk.Align.CENTER)
             btn.connect('clicked', lambda _, d=device, i=iface_id: self._on_restore(d, i))
+            row.add_suffix(btn)
+        else:
+            btn = Gtk.Button(label='Show anyway')
+            btn.add_css_class('flat')
+            btn.set_valign(Gtk.Align.CENTER)
+            btn.connect('clicked', lambda _, d=device, i=iface_id: self._on_show_anyway(d, i))
             row.add_suffix(btn)
         return row
 
@@ -318,12 +350,24 @@ class JoyToggleWindow(Adw.ApplicationWindow):
         toggle_async(all_ifaces, new_state, on_done)
 
     def _on_hide(self, device):
-        self.hidden.add(get_iface_id(device))
+        iface_id = get_iface_id(device)
+        self.hidden.add(iface_id)
+        self.shown.discard(iface_id)
         save_hidden(self.hidden)
+        save_shown(self.shown)
+        self._load_devices()
+
+    def _on_show_anyway(self, device, iface_id):
+        self.shown.add(iface_id)
+        save_shown(self.shown)
         self._load_devices()
 
     def _on_restore(self, device, iface_id):
         self.hidden.discard(iface_id)
+        # If the device would still be auto-hidden, force-show it too
+        if device['autohide']:
+            self.shown.add(iface_id)
+            save_shown(self.shown)
         save_hidden(self.hidden)
         self._load_devices()
 

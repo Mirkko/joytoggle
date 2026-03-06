@@ -53,3 +53,20 @@ def save_hidden(hidden: set):
     os.makedirs(CONFIG_DIR, exist_ok=True)
     with open(hidden_file, 'w') as f:
         json.dump(list(hidden), f, indent=2)
+
+def load_shown():
+    """Load the set of iface_ids the user has force-shown despite auto-hide."""
+    shown_file = os.path.join(CONFIG_DIR, 'shown.json')
+    if not os.path.exists(shown_file):
+        return set()
+    try:
+        with open(shown_file) as f:
+            return set(json.load(f))
+    except (json.JSONDecodeError, OSError):
+        return set()
+
+def save_shown(shown: set):
+    shown_file = os.path.join(CONFIG_DIR, 'shown.json')
+    os.makedirs(CONFIG_DIR, exist_ok=True)
+    with open(shown_file, 'w') as f:
+        json.dump(list(shown), f, indent=2)
