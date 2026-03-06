@@ -19,7 +19,7 @@ source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/tags/v$pkgver.tar.gz")
 sha256sums=('aea81376e6bef314b3b14f9796cec600716f132673a0e7e2f2a98adf848c2161')
 
 package() {
-    cd "$srcdir/joytoggle-main"
+    cd "$srcdir/joytoggle-$pkgver"
 
     # App files
     install -dm755 "$pkgdir/usr/lib/joytoggle"
