@@ -31,7 +31,7 @@ def _write_system_state(state: dict):
             json.dump(state, f, indent=2)
     except PermissionError:
         # Fall back to pkexec if we can't write directly
-        import tempfile, shutil
+        import tempfile
         with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as tmp:
             json.dump(state, tmp)
             tmp_path = tmp.name

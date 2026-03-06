@@ -67,7 +67,7 @@ Launch **JoyToggle** from your app launcher (Super key → search "JoyToggle" or
 Or run from terminal:
 
 ```bash
-python /usr/lib/joytoggle/app.py
+python3 /usr/lib/joytoggle/app.py
 ```
 
 **Toggling a device** requires your password once per session. After authenticating, further toggles in the same session won't prompt again.
@@ -113,8 +113,9 @@ Tested with:
 Pull requests welcome. If your device isn't detected correctly, open an issue with the output of:
 
 ```bash
-python scanner.py
+python3 scanner.py
 ```
+
 ## Credits
 
 This project was built with AI assistance (Claude by Anthropic) for code generation,

@@ -16,7 +16,6 @@ TYPE_RULES = [
 
 AUTOHIDE_RULES = [
     r'keyboard',
-    r'mouse',
     r'volume|media|consumer control|system control',
 ]
 

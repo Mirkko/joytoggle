@@ -4,4 +4,4 @@
 
 - [x] **README inconsistency** — changed `.desktop Name=` to `JoyToggle` in install.sh and PKGBUILD, updated README.
 
-- [ ] **Commit PKGBUILD** — PKGBUILD has uncommitted changes (pkgrel=3).
+- [x] **Commit PKGBUILD** — done.

@@ -90,7 +90,8 @@ info "Installing systemd boot service..."
 sudo bash -c "cat > /etc/systemd/system/joytoggle.service" << 'SYSTEMD'
 [Unit]
 Description=JoyToggle — restore joystick device states
-After=sysinit.target local-fs.target
+After=systemd-udev-settle.service
+Wants=systemd-udev-settle.service
 
 [Service]
 Type=oneshot
@@ -126,6 +127,6 @@ success "App launcher installed"
 echo ""
 echo -e "  ${GREEN}✓ Installation complete!${NC}"
 echo ""
-echo "  Launch from your app launcher (search 'Joystick')"
+echo "  Launch from your app launcher (search 'JoyToggle')"
 echo "  Or run:  python3 /usr/lib/joytoggle/app.py"
 echo ""

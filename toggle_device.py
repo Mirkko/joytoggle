@@ -45,10 +45,6 @@ def enable_device(iface_id):
         print(f"ERROR: could not enable {iface_id}: {e}")
         sys.exit(1)
 
-def is_currently_enabled(usb_sysfs_path):
-    driver_link = os.path.join(usb_sysfs_path, 'driver')
-    return os.path.exists(driver_link)
-
 if __name__ == '__main__':
     if os.geteuid() != 0:
         print("ERROR: This script must run as root.")
