@@ -109,7 +109,7 @@ success "systemd service installed and enabled"
 info "Installing app launcher..."
 sudo bash -c "cat > /usr/share/applications/joytoggle.desktop" << DESKTOP
 [Desktop Entry]
-Name=Joystick Manager
+Name=JoyToggle
 Comment=Enable or disable joystick and sim controller devices
 Exec=/usr/bin/python3 /usr/lib/joytoggle/app.py
 Icon=input-gaming

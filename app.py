@@ -377,7 +377,7 @@ class JoyToggleApp(Adw.Application):
 
     def _on_activate(self, app):
         win = JoyToggleWindow(app)
-        win.set_icon_name('joytoggle')
+        win.set_icon_name('input-gaming')
         win.present()
 
 

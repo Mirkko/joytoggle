@@ -20,7 +20,7 @@ echo ""
 info "Re-enabling all devices before uninstall..."
 STATE_FILE="/var/lib/joytoggle/state.json"
 if [ -f "$STATE_FILE" ]; then
-    python3 /usr/lib/joytoggle/restore_state.py --enable-all 2>/dev/null || true
+    sudo python3 /usr/lib/joytoggle/restore_state.py --enable-all 2>/dev/null || true
 fi
 
 info "Stopping and disabling systemd service..."

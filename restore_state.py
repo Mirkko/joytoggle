@@ -43,19 +43,22 @@ if __name__ == '__main__':
         print("ERROR: must run as root")
         sys.exit(1)
 
+    enable_all = '--enable-all' in sys.argv
+
     if not os.path.exists(STATE_FILE):
         print("No state file found, nothing to restore.")
         sys.exit(0)
 
-    time.sleep(2)
+    if not enable_all:
+        time.sleep(2)
 
     with open(STATE_FILE) as f:
         state = json.load(f)
 
     for iface_id, enabled in state.items():
-        if not enabled:
-            disable_device(iface_id)
-        else:
+        if enable_all or enabled:
             enable_device(iface_id)
+        else:
+            disable_device(iface_id)
 
     sys.exit(0)

@@ -62,7 +62,7 @@ chmod +x install.sh
 
 ## Usage
 
-Launch **Joystick Manager** from your app launcher (Super key → search "Joystick").
+Launch **JoyToggle** from your app launcher (Super key → search "JoyToggle" or "joystick").
 
 Or run from terminal:
 
