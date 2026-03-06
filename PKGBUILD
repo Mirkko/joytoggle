@@ -56,7 +56,7 @@ WantedBy=multi-user.target
 EOF
 
     # .desktop launcher
-    install -Dm644 /dev/stdin "$pkgdir/usr/share/applications/joytoggle.desktop" << EOF
+    install -Dm644 /dev/stdin "$pkgdir/usr/share/applications/org.joytoggle.app.desktop" << EOF
 [Desktop Entry]
 Name=JoyToggle
 Comment=Enable or disable joystick and sim controller devices
@@ -67,6 +67,7 @@ Type=Application
 Categories=Settings;HardwareSettings;
 Keywords=joystick;gamepad;controller;sim;virpil;hotas;
 StartupNotify=true
+StartupWMClass=org.joytoggle.app
 EOF
 
     # License
