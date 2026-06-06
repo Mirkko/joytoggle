@@ -32,6 +32,7 @@ success "systemd service removed"
 
 info "Removing app files..."
 sudo rm -rf /usr/lib/joytoggle
+sudo rm -f /usr/bin/joytoggle
 success "App files removed"
 
 info "Removing polkit policy..."

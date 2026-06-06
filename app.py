@@ -1,13 +1,41 @@
 #!/usr/bin/env python3
+import sys
+import os
+
+__version__ = '1.0.1'
+
+# ── CLI mode — runs headless, no display needed ───────────────
+
+def _cmd_list():
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    from scanner import get_devices_with_cache
+    devices = get_devices_with_cache()
+    if not devices:
+        print("No devices found.")
+        return
+    for d in devices:
+        iface  = os.path.basename(d['usb_path']) if d['usb_path'] else d['event']
+        status = 'ON ' if d['enabled'] else 'OFF'
+        print(f"[{status}]  {d['type']:<16}  {d['name']}  ({iface})")
+
+
+if '--list' in sys.argv or '-l' in sys.argv:
+    _cmd_list()
+    sys.exit(0)
+
+if '--version' in sys.argv or '-V' in sys.argv:
+    print(f"JoyToggle {__version__}")
+    sys.exit(0)
+
+# ── GUI mode ──────────────────────────────────────────────────
+
 import gi
 gi.require_version('Gtk', '4.0')
 gi.require_version('Adw', '1')
 
-from gi.repository import Gtk, Adw, GLib
+from gi.repository import Gtk, Adw, GLib, Gio
 import subprocess
 import threading
-import os
-import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from scanner import get_devices_with_cache
@@ -101,7 +129,6 @@ class DeviceRow(Adw.ExpanderRow):
         self.switch.connect('state-set', self._on_switch_toggled)
         self.add_suffix(self.switch)
 
-        # If device is currently unreachable (disabled + not in sysfs) mark it
         if not device['enabled'] and not os.path.exists(device.get('usb_path', '')):
             self.set_subtitle(device['type'] + ' · disconnected from kernel')
 
@@ -169,17 +196,24 @@ class JoyToggleWindow(Adw.ApplicationWindow):
         self.shown   = load_shown()
         self.devices = []
 
-        self._device_rows    = []
-        self._hidden_rows    = []
+        self._device_rows      = []
+        self._hidden_rows      = []
         self._hidden_expander  = None
         self._hidden_expanded  = False
+        self._dev_monitor      = None
+        self._refresh_pending  = None
 
         self._build_ui()
         self._load_devices()
+        self._setup_device_monitor()
 
     def _build_ui(self):
         toolbar_view = Adw.ToolbarView()
-        self.set_content(toolbar_view)
+
+        # ToastOverlay wraps everything so toasts appear over the content
+        self.toast_overlay = Adw.ToastOverlay()
+        self.toast_overlay.set_child(toolbar_view)
+        self.set_content(self.toast_overlay)
 
         header = Adw.HeaderBar()
         toolbar_view.add_top_bar(header)
@@ -243,6 +277,33 @@ class JoyToggleWindow(Adw.ApplicationWindow):
         self.empty_label.set_visible(False)
         self.outer_box.append(self.empty_label)
 
+    def _setup_device_monitor(self):
+        """Watch /sys/class/input for plug/unplug events and auto-refresh."""
+        try:
+            f = Gio.File.new_for_path('/sys/class/input')
+            self._dev_monitor = f.monitor_directory(Gio.FileMonitorFlags.NONE, None)
+            self._dev_monitor.connect('changed', self._on_input_changed)
+        except Exception as e:
+            print(f"Warning: could not set up device monitor: {e}")
+
+    def _on_input_changed(self, monitor, gfile, _other, _event_type):
+        if not gfile.get_basename().startswith('event'):
+            return
+        # Debounce: a single plug event fires several inotify notifications
+        if self._refresh_pending is not None:
+            GLib.source_remove(self._refresh_pending)
+        self._refresh_pending = GLib.timeout_add(600, self._deferred_refresh)
+
+    def _deferred_refresh(self):
+        self._refresh_pending = None
+        self._load_devices()
+        return GLib.SOURCE_REMOVE
+
+    def _show_toast(self, message):
+        toast = Adw.Toast.new(message)
+        toast.set_timeout(3)
+        self.toast_overlay.add_toast(toast)
+
     def _clear_groups(self):
         for row in self._device_rows:
             self.devices_group.remove(row)
@@ -280,17 +341,15 @@ class JoyToggleWindow(Adw.ApplicationWindow):
         for d in raw:
             iface_id = get_iface_id(d)
 
-            # Saved state overrides live sysfs reading
             if iface_id in self.state:
                 d['enabled'] = self.state[iface_id]
             elif d['usb_path'] and os.path.exists(d['usb_path']):
                 d['enabled'] = is_device_enabled(d['usb_path'])
-            # else: keep whatever get_devices_with_cache set (False for cached-only)
 
             self.devices.append(d)
 
-            is_autohidden  = d['autohide'] and iface_id not in self.shown
-            is_man_hidden  = iface_id in self.hidden
+            is_autohidden = d['autohide'] and iface_id not in self.shown
+            is_man_hidden = iface_id in self.hidden
             if is_autohidden or is_man_hidden:
                 hidden_devices.append((iface_id, d))
             else:
@@ -345,6 +404,8 @@ class JoyToggleWindow(Adw.ApplicationWindow):
                 self.state[iface_id] = new_state
                 save_state(self.state)
                 self._update_banner()
+            else:
+                self._show_toast(f"Failed to toggle {device['name']}")
             done_cb(success, new_state)
 
         toggle_async(all_ifaces, new_state, on_done)
@@ -364,7 +425,6 @@ class JoyToggleWindow(Adw.ApplicationWindow):
 
     def _on_restore(self, device, iface_id):
         self.hidden.discard(iface_id)
-        # If the device would still be auto-hidden, force-show it too
         if device['autohide']:
             self.shown.add(iface_id)
             save_shown(self.shown)
@@ -380,7 +440,6 @@ class JoyToggleWindow(Adw.ApplicationWindow):
         if not visible:
             return
 
-        # Gather every interface ID across every device in one flat list
         all_ifaces = []
         for d in visible:
             if d['usb_path']:
@@ -389,17 +448,18 @@ class JoyToggleWindow(Adw.ApplicationWindow):
         if not all_ifaces:
             return
 
-        # Disable the buttons while working
         self.outer_box.set_sensitive(False)
 
         def on_done(success):
             self.outer_box.set_sensitive(True)
             if success:
                 for d in visible:
-                    iface_id        = get_iface_id(d)
-                    d['enabled']    = enable
+                    iface_id          = get_iface_id(d)
+                    d['enabled']      = enable
                     self.state[iface_id] = enable
                 save_state(self.state)
+            else:
+                self._show_toast("Failed to toggle all devices")
             self._load_devices()
 
         toggle_async(all_ifaces, enable, on_done)

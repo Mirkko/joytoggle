@@ -133,21 +133,23 @@ def load_devices_cache():
 
 def get_devices_with_cache():
     """
-    Returns live devices merged with cached ones.
-    Devices that are cached but not live are shown as disabled
-    (they've been unbound from the kernel).
+    Returns live devices merged with cached ones, deduplicated by USB interface.
+    Multiple kernel input nodes can share one USB interface (e.g. a keyboard
+    that exposes both a consumer-control and a gamepad node). We keep the first
+    entry seen for each interface ID so callers don't have to deduplicate.
+    Devices that are cached but not live are shown as disabled (unbound from kernel).
     """
-    live    = get_devices()
-    cached  = load_devices_cache()
+    live   = get_devices()
+    cached = load_devices_cache()
 
     live_usb_paths = {d['usb_path'] for d in live if d['usb_path']}
 
     # Add cached devices that are no longer visible (i.e. disabled)
     for cached_dev in cached:
         if cached_dev['usb_path'] not in live_usb_paths:
-            cached_dev = dict(cached_dev)   # copy
-            cached_dev['enabled'] = False
-            cached_dev['event']   = cached_dev.get('event', '?')
+            cached_dev             = dict(cached_dev)
+            cached_dev['enabled']  = False
+            cached_dev['event']    = cached_dev.get('event', '?')
             cached_dev['dev_path'] = cached_dev.get('dev_path', '?')
             live.append(cached_dev)
 
@@ -155,7 +157,15 @@ def get_devices_with_cache():
     if live:
         save_devices_cache([d for d in live if d['usb_path'] in live_usb_paths])
 
-    return live
+    # Deduplicate by USB interface ID — keep first entry per interface
+    seen   = {}
+    result = []
+    for d in live:
+        key = os.path.basename(d['usb_path']) if d['usb_path'] else d['event']
+        if key not in seen:
+            seen[key] = True
+            result.append(d)
+    return result
 
 
 if __name__ == '__main__':
