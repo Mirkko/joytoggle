@@ -4,3 +4,8 @@ __pycache__/
 *.pkg.tar.zst
 *.tar.gz
 .notes
+
+# Rust
+/target/
+Cargo.lock
+

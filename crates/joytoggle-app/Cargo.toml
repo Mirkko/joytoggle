@@ -1,0 +1,23 @@
+[package]
+name        = "joytoggle-app"
+description = "GPUI frontend for JoyToggle"
+version.workspace    = true
+edition.workspace    = true
+authors.workspace    = true
+license.workspace    = true
+repository.workspace = true
+
+[[bin]]
+name = "joytoggle"
+path = "src/main.rs"
+
+[dependencies]
+joytoggle-core     = { workspace = true }
+serde              = { workspace = true }
+serde_json         = { workspace = true }
+anyhow             = { workspace = true }
+thiserror          = { workspace = true }
+tokio              = { workspace = true }
+tracing            = { workspace = true }
+tracing-subscriber = { workspace = true }
+zbus               = { version = "5", features = ["tokio"] }
