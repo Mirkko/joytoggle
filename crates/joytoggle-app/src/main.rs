@@ -397,6 +397,11 @@ fn main() {
         cx.open_window(
             WindowOptions {
                 window_bounds: Some(WindowBounds::Windowed(bounds)),
+                titlebar: Some(gpui::TitlebarOptions {
+                    title: Some("JoyToggle".into()),
+                    ..Default::default()
+                }),
+                app_id: Some("joytoggle".to_string()),
                 ..Default::default()
             },
             |_, cx| cx.new(JoyToggleWindow::new),

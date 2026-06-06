@@ -39,3 +39,25 @@ assets = [
     ["../../packaging/systemd/joytoggle-daemon.service", "lib/systemd/system/joytoggle-daemon.service", "644"],
     ["../../packaging/polkit/org.joytoggle.daemon.policy", "usr/share/polkit-1/actions/org.joytoggle.daemon.policy", "644"],
 ]
+
+[package.metadata.generate-rpm]
+name        = "joytoggle-daemon"
+license     = "GPL-3.0-or-later"
+summary     = "JoyToggle D-Bus system daemon"
+description = "JoyToggle D-Bus system daemon. Manages joystick device bind/unbind at the kernel level via systemd. Required for the joytoggle GUI to function."
+requires    = ["polkit", "systemd"]
+
+[[package.metadata.generate-rpm.assets]]
+source = "target/release/joytoggle-daemon"
+dest   = "/usr/bin/joytoggle-daemon"
+mode   = "755"
+
+[[package.metadata.generate-rpm.assets]]
+source = "packaging/systemd/joytoggle-daemon.service"
+dest   = "/usr/lib/systemd/system/joytoggle-daemon.service"
+mode   = "644"
+
+[[package.metadata.generate-rpm.assets]]
+source = "packaging/polkit/org.joytoggle.daemon.policy"
+dest   = "/usr/share/polkit-1/actions/org.joytoggle.daemon.policy"
+mode   = "644"

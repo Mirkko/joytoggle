@@ -36,4 +36,27 @@ priority        = "optional"
 assets = [
     ["target/release/joytoggle", "usr/bin/joytoggle", "755"],
     ["../../packaging/polkit/org.joytoggle.daemon.policy", "usr/share/polkit-1/actions/org.joytoggle.daemon.policy", "644"],
+    ["../../packaging/joytoggle.desktop", "usr/share/applications/joytoggle.desktop", "644"],
 ]
+
+[package.metadata.generate-rpm]
+name        = "joytoggle"
+license     = "GPL-3.0-or-later"
+summary     = "JoyToggle — enable/disable joystick devices without unplugging"
+description = "Enable or disable joystick and sim controller devices without unplugging. Built for sim pilots using HOTAS setups."
+requires    = ["polkit", "joytoggle-daemon"]
+
+[[package.metadata.generate-rpm.assets]]
+source = "target/release/joytoggle"
+dest   = "/usr/bin/joytoggle"
+mode   = "755"
+
+[[package.metadata.generate-rpm.assets]]
+source = "packaging/polkit/org.joytoggle.daemon.policy"
+dest   = "/usr/share/polkit-1/actions/org.joytoggle.daemon.policy"
+mode   = "644"
+
+[[package.metadata.generate-rpm.assets]]
+source = "packaging/joytoggle.desktop"
+dest   = "/usr/share/applications/joytoggle.desktop"
+mode   = "644"

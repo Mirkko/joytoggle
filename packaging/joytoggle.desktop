@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=JoyToggle
+Comment=Enable or disable joystick devices without unplugging
+Exec=joytoggle
+Icon=input-gaming
+Categories=Game;Utility;
+StartupWMClass=joytoggle
+Keywords=joystick;gamepad;HOTAS;input;

@@ -40,12 +40,8 @@ async fn main() -> anyhow::Result<()> {
 
     info!("serving on org.joytoggle.Daemon");
 
-    // Keep running until terminated
-    loop {
-        tokio::signal::ctrl_c().await?;
-        info!("received ctrl-c, shutting down");
-        break;
-    }
+    tokio::signal::ctrl_c().await?;
+    info!("received ctrl-c, shutting down");
 
     Ok(())
 }

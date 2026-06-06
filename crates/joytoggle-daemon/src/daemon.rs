@@ -4,7 +4,69 @@ use std::sync::Arc;
 use joytoggle_core::{
     Device, DeviceState, DeviceToggler, FileCacheStore, InterfaceId, StateStore, SysfsReader,
 };
-use zbus::interface;
+use zbus::{interface, proxy, Connection, message::Header};
+use zbus::zvariant::{OwnedValue, Value};
+
+const POLKIT_ACTION: &str = "org.joytoggle.daemon.manage-device";
+
+#[proxy(
+    interface = "org.freedesktop.PolicyKit1.Authority",
+    default_service = "org.freedesktop.PolicyKit1",
+    default_path = "/org/freedesktop/PolicyKit1/Authority"
+)]
+trait PolkitAuthority {
+    fn check_authorization(
+        &self,
+        subject: (String, HashMap<String, OwnedValue>),
+        action_id: &str,
+        details: HashMap<String, String>,
+        flags: u32,
+        cancellation_id: &str,
+    ) -> zbus::Result<(bool, bool, HashMap<String, String>)>;
+}
+
+async fn check_polkit_auth(conn: &Connection, sender: &str) -> zbus::fdo::Result<()> {
+    let dbus = zbus::fdo::DBusProxy::new(conn).await
+        .map_err(|e| zbus::fdo::Error::Failed(e.to_string()))?;
+
+    let bus_name = zbus::names::BusName::try_from(sender)
+        .map_err(|_| zbus::fdo::Error::InvalidArgs(format!("invalid sender: {sender:?}")))?;
+    let pid = dbus.get_connection_unix_process_id(bus_name).await
+        .map_err(|e| zbus::fdo::Error::Failed(format!("could not get caller PID: {e}")))?;
+
+    let mut subject_details: HashMap<String, OwnedValue> = HashMap::new();
+    subject_details.insert(
+        "pid".into(),
+        Value::U32(pid).try_to_owned()
+            .map_err(|e| zbus::fdo::Error::Failed(e.to_string()))?,
+    );
+    subject_details.insert(
+        "start-time".into(),
+        Value::U64(0).try_to_owned()
+            .map_err(|e| zbus::fdo::Error::Failed(e.to_string()))?,
+    );
+
+    let polkit = PolkitAuthorityProxy::new(conn).await
+        .map_err(|e| zbus::fdo::Error::Failed(e.to_string()))?;
+
+    let (authorized, _, _) = polkit
+        .check_authorization(
+            ("unix-process".to_string(), subject_details),
+            POLKIT_ACTION,
+            HashMap::new(),
+            1, // AllowUserInteraction
+            "",
+        )
+        .await
+        .map_err(|e| zbus::fdo::Error::Failed(format!("polkit check failed: {e}")))?;
+
+    if !authorized {
+        return Err(zbus::fdo::Error::AccessDenied(
+            "polkit authorization denied".into(),
+        ));
+    }
+    Ok(())
+}
 
 pub struct JoyToggleDaemon {
     pub toggler:     Arc<dyn DeviceToggler + Send + Sync>,
@@ -15,7 +77,16 @@ pub struct JoyToggleDaemon {
 
 #[interface(name = "org.joytoggle.Daemon1")]
 impl JoyToggleDaemon {
-    async fn enable_device(&self, iface_id: String) -> zbus::fdo::Result<()> {
+    async fn enable_device(
+        &self,
+        #[zbus(connection)] conn: &Connection,
+        #[zbus(header)] header: Header<'_>,
+        iface_id: String,
+    ) -> zbus::fdo::Result<()> {
+        let sender = header.sender()
+            .ok_or_else(|| zbus::fdo::Error::Failed("no sender in message header".into()))?;
+        check_polkit_auth(conn, sender.as_str()).await?;
+
         if !InterfaceId::is_valid(&iface_id) {
             return Err(zbus::fdo::Error::InvalidArgs(format!(
                 "invalid interface ID: {iface_id:?}"
@@ -26,7 +97,16 @@ impl JoyToggleDaemon {
             .map_err(|e| zbus::fdo::Error::Failed(e.to_string()))
     }
 
-    async fn disable_device(&self, iface_id: String) -> zbus::fdo::Result<()> {
+    async fn disable_device(
+        &self,
+        #[zbus(connection)] conn: &Connection,
+        #[zbus(header)] header: Header<'_>,
+        iface_id: String,
+    ) -> zbus::fdo::Result<()> {
+        let sender = header.sender()
+            .ok_or_else(|| zbus::fdo::Error::Failed("no sender in message header".into()))?;
+        check_polkit_auth(conn, sender.as_str()).await?;
+
         if !InterfaceId::is_valid(&iface_id) {
             return Err(zbus::fdo::Error::InvalidArgs(format!(
                 "invalid interface ID: {iface_id:?}"
@@ -37,7 +117,16 @@ impl JoyToggleDaemon {
             .map_err(|e| zbus::fdo::Error::Failed(e.to_string()))
     }
 
-    async fn save_state(&self, state_json: String) -> zbus::fdo::Result<()> {
+    async fn save_state(
+        &self,
+        #[zbus(connection)] conn: &Connection,
+        #[zbus(header)] header: Header<'_>,
+        state_json: String,
+    ) -> zbus::fdo::Result<()> {
+        let sender = header.sender()
+            .ok_or_else(|| zbus::fdo::Error::Failed("no sender in message header".into()))?;
+        check_polkit_auth(conn, sender.as_str()).await?;
+
         let state: DeviceState = serde_json::from_str(&state_json)
             .map_err(|e| zbus::fdo::Error::InvalidArgs(format!("invalid state JSON: {e}")))?;
         self.state_store
