@@ -153,9 +153,11 @@ def get_devices_with_cache():
             cached_dev['dev_path'] = cached_dev.get('dev_path', '?')
             live.append(cached_dev)
 
-    # Save the live (currently plugged in) devices to cache
+    # Save all seen devices to cache — including disabled ones.
+    # Saving only sysfs-visible devices was evicting disabled devices on every
+    # auto-refresh, leaving no way to re-enable them from the UI.
     if live:
-        save_devices_cache([d for d in live if d['usb_path'] in live_usb_paths])
+        save_devices_cache(live)
 
     # Deduplicate by USB interface ID — keep first entry per interface
     seen   = {}
