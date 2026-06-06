@@ -3,7 +3,7 @@ mod toggler;
 
 use std::sync::Arc;
 
-use joytoggle_core::FileStateStore;
+use joytoggle_core::{FileCacheStore, FileStateStore, LinuxSysfsReader};
 use tracing::info;
 use zbus::connection::Builder as ConnectionBuilder;
 
@@ -26,8 +26,10 @@ async fn main() -> anyhow::Result<()> {
     info!("joytoggle-daemon starting");
 
     let daemon = JoyToggleDaemon {
-        toggler: Arc::new(SysfsDeviceToggler),
+        toggler:     Arc::new(SysfsDeviceToggler),
         state_store: Arc::new(FileStateStore),
+        scanner:     Arc::new(LinuxSysfsReader),
+        cache:       Arc::new(FileCacheStore::default()),
     };
 
     let _conn = ConnectionBuilder::system()?

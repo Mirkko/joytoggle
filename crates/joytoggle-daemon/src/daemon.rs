@@ -1,11 +1,16 @@
+use std::collections::HashMap;
 use std::sync::Arc;
 
-use joytoggle_core::{DeviceState, DeviceToggler, InterfaceId, StateStore};
+use joytoggle_core::{
+    Device, DeviceState, DeviceToggler, FileCacheStore, InterfaceId, StateStore, SysfsReader,
+};
 use zbus::interface;
 
 pub struct JoyToggleDaemon {
-    pub toggler: Arc<dyn DeviceToggler + Send + Sync>,
+    pub toggler:     Arc<dyn DeviceToggler + Send + Sync>,
     pub state_store: Arc<dyn StateStore + Send + Sync>,
+    pub scanner:     Arc<dyn SysfsReader + Send + Sync>,
+    pub cache:       Arc<FileCacheStore>,
 }
 
 #[interface(name = "org.joytoggle.Daemon1")]
@@ -40,11 +45,50 @@ impl JoyToggleDaemon {
             .map_err(|e| zbus::fdo::Error::Failed(e.to_string()))
     }
 
+    /// Returns JSON array of Device — live devices merged with cache and saved state.
+    /// Mirrors the Python get_devices_with_cache() logic.
     async fn list_devices(&self) -> zbus::fdo::Result<String> {
-        // Returns the current saved state as JSON for now.
-        // Full device scan will be added when integrating LinuxSysfsReader.
-        let state = self.state_store.load();
-        serde_json::to_string(&state)
+        let mut live = self.scanner.read_devices();
+        let cached   = self.cache.load_cache();
+        let state    = self.state_store.load();
+
+        let live_usb_paths: std::collections::HashSet<String> = live
+            .iter()
+            .filter_map(|d| d.usb_path.clone())
+            .collect();
+
+        // Append cached devices not currently in sysfs (disabled/unbound)
+        for mut cd in cached {
+            let in_live = cd.usb_path
+                .as_ref()
+                .map(|p| live_usb_paths.contains(p))
+                .unwrap_or(false);
+            if !in_live {
+                cd.enabled = false;
+                live.push(cd);
+            }
+        }
+
+        // Apply saved state + deduplicate by interface ID
+        let mut seen: HashMap<String, ()> = HashMap::new();
+        let mut devices: Vec<Device> = Vec::new();
+        for mut d in live {
+            let key = d.iface_id().as_str().to_owned();
+            if seen.contains_key(&key) {
+                continue;
+            }
+            seen.insert(key.clone(), ());
+            // Saved state overrides sysfs reading
+            if let Some(&enabled) = state.get(&InterfaceId::from(key)) {
+                d.enabled = enabled;
+            }
+            devices.push(d);
+        }
+
+        // Persist updated cache (includes disabled devices so they survive reboots)
+        let _ = self.cache.save_cache(&devices);
+
+        serde_json::to_string(&devices)
             .map_err(|e| zbus::fdo::Error::Failed(e.to_string()))
     }
 }
