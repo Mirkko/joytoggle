@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JoyToggle — Linux HOTAS Utility</title>
+  <style>
+    :root {
+      --bg:      #0d1117;
+      --surface: #161b22;
+      --border:  #30363d;
+      --text:    #c9d1d9;
+      --muted:   #8b949e;
+      --accent:  #58a6ff;
+      --green:   #3fb950;
+      --code-bg: #010409;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg); color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      line-height: 1.6; -webkit-font-smoothing: antialiased;
+    }
+    .container { max-width: 860px; margin: 0 auto; padding: 0 1.5rem; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    /* ── Nav ── */
+    nav {
+      border-bottom: 1px solid var(--border);
+      padding: 1rem 0;
+    }
+    nav .container {
+      display: flex; align-items: center; justify-content: space-between;
+      padding-top: 0; padding-bottom: 0;
+    }
+    nav .logo { font-weight: 700; font-size: 1.1rem; color: #fff; }
+    nav .links { display: flex; gap: 1.5rem; font-size: 0.9rem; color: var(--muted); }
+
+    /* ── Hero ── */
+    .hero { text-align: center; padding: 5rem 0 4rem; }
+    .hero h1 { font-size: clamp(2.2rem, 5vw, 3.5rem); color: #fff; margin-bottom: 1rem; }
+    .hero p  { font-size: 1.15rem; color: var(--muted); max-width: 560px; margin: 0 auto 2rem; }
+    .hero .buttons { display: flex; gap: 0.75rem; justify-content: center; flex-wrap: wrap; }
+    .btn {
+      display: inline-block; padding: 0.6rem 1.4rem; border-radius: 6px;
+      font-size: 0.95rem; font-weight: 500; cursor: pointer;
+    }
+    .btn-primary   { background: var(--accent); color: #0d1117; }
+    .btn-secondary { background: transparent; color: var(--text); border: 1px solid var(--border); }
+    .btn:hover { opacity: 0.88; text-decoration: none; }
+    .screenshot {
+      margin-top: 3rem; border-radius: 10px; overflow: hidden;
+      border: 1px solid var(--border); display: inline-block;
+    }
+    .screenshot img { display: block; max-width: 100%; }
+    .screenshot-placeholder {
+      width: 500px; max-width: 100%; height: 320px;
+      background: var(--surface); display: flex; align-items: center;
+      justify-content: center; color: var(--muted); font-size: 0.85rem;
+    }
+
+    /* ── Features ── */
+    .features { padding: 4rem 0; }
+    .features h2 { text-align: center; font-size: 1.8rem; color: #fff; margin-bottom: 2.5rem; }
+    .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1rem; }
+    .card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 8px; padding: 1.5rem;
+    }
+    .card .icon { font-size: 1.5rem; margin-bottom: 0.75rem; }
+    .card h3    { font-size: 1rem; color: #fff; margin-bottom: 0.5rem; }
+    .card p     { font-size: 0.9rem; color: var(--muted); }
+
+    /* ── Install ── */
+    .install { padding: 4rem 0; }
+    .install h2 { text-align: center; font-size: 1.8rem; color: #fff; margin-bottom: 2rem; }
+    .tabs { display: flex; gap: 0; border-bottom: 1px solid var(--border); margin-bottom: 1.5rem; }
+    .tab {
+      padding: 0.5rem 1.25rem; font-size: 0.9rem; cursor: pointer;
+      color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -1px;
+    }
+    .tab.active { color: var(--text); border-bottom-color: var(--accent); }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+    pre {
+      background: var(--code-bg); border: 1px solid var(--border); border-radius: 6px;
+      padding: 1.25rem 1.5rem; font-size: 0.9rem; overflow-x: auto;
+      color: #e6edf3; font-family: "SFMono-Regular", Consolas, monospace;
+    }
+    .comment { color: var(--muted); }
+
+    /* ── Footer ── */
+    footer {
+      border-top: 1px solid var(--border); padding: 2rem 0;
+      text-align: center; color: var(--muted); font-size: 0.85rem;
+    }
+  </style>
+</head>
+<body>
+
+<nav>
+  <div class="container">
+    <span class="logo">🕹 JoyToggle</span>
+    <div class="links">
+      <a href="https://github.com/Mirkko/joytoggle">GitHub</a>
+      <a href="#install">Install</a>
+      <a href="https://github.com/Mirkko/joytoggle/releases">Releases</a>
+    </div>
+  </div>
+</nav>
+
+<section class="hero">
+  <div class="container">
+    <h1>JoyToggle</h1>
+    <p>Enable or disable your HOTAS without unplugging — for sim pilots on Linux.</p>
+    <div class="buttons">
+      <a href="https://github.com/Mirkko/joytoggle" class="btn btn-primary">View on GitHub</a>
+      <a href="#install" class="btn btn-secondary">Download</a>
+    </div>
+    <div class="screenshot">
+      <div class="screenshot-placeholder">screenshot coming soon</div>
+    </div>
+  </div>
+</section>
+
+<section class="features">
+  <div class="container">
+    <h2>Features</h2>
+    <div class="cards">
+      <div class="card">
+        <div class="icon">⚡</div>
+        <h3>No Unplugging</h3>
+        <p>Toggles devices at the kernel level via <code>/sys/bus/usb</code>. Works on Wayland and X11 — below the display server.</p>
+      </div>
+      <div class="card">
+        <div class="icon">💾</div>
+        <h3>State Persistence</h3>
+        <p>Your last-known device state is restored at boot via a systemd service. Disabled controllers stay disabled across reboots.</p>
+      </div>
+      <div class="card">
+        <div class="icon">🎮</div>
+        <h3>HOTAS-Aware</h3>
+        <p>Auto-detects joysticks, throttles, rudder pedals, and gamepads by name. Hides keyboards and media keys automatically.</p>
+      </div>
+      <div class="card">
+        <div class="icon">🖥</div>
+        <h3>Clean UI</h3>
+        <p>Compact dark interface with per-device toggles, hide/unhide, Enable All / Disable All. Built with GPUI (Zed's engine).</p>
+      </div>
+      <div class="card">
+        <div class="icon">🔒</div>
+        <h3>polkit Auth</h3>
+        <p>Privilege escalation via polkit — the same mechanism your desktop uses for software installation. Never runs as root itself.</p>
+      </div>
+      <div class="card">
+        <div class="icon">📦</div>
+        <h3>Easy Install</h3>
+        <p>Available on AUR for Arch users. <code>.deb</code> and <code>.rpm</code> packages for Ubuntu, Debian, and Fedora.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="install" id="install">
+  <div class="container">
+    <h2>Install</h2>
+    <div class="tabs">
+      <div class="tab active"  onclick="switchTab('arch')">Arch Linux</div>
+      <div class="tab"         onclick="switchTab('ubuntu')">Ubuntu / Debian</div>
+      <div class="tab"         onclick="switchTab('fedora')">Fedora</div>
+    </div>
+
+    <div id="tab-arch" class="tab-content active">
+      <pre><span class="comment"># Install from AUR (recommended)</span>
+yay -S joytoggle
+
+<span class="comment"># Or build manually</span>
+git clone https://github.com/Mirkko/joytoggle.git
+cd joytoggle && ./install.sh</pre>
+    </div>
+
+    <div id="tab-ubuntu" class="tab-content">
+      <pre><span class="comment"># Download the latest .deb from GitHub Releases</span>
+wget https://github.com/Mirkko/joytoggle/releases/latest/download/joytoggle_amd64.deb
+
+<span class="comment"># Install daemon + app</span>
+sudo dpkg -i joytoggle_amd64.deb
+
+<span class="comment"># Or build from source (requires Ubuntu 22.04+)</span>
+git clone https://github.com/Mirkko/joytoggle.git
+cd joytoggle && ./install.sh</pre>
+    </div>
+
+    <div id="tab-fedora" class="tab-content">
+      <pre><span class="comment"># Download the latest .rpm from GitHub Releases</span>
+wget https://github.com/Mirkko/joytoggle/releases/latest/download/joytoggle.x86_64.rpm
+
+sudo rpm -i joytoggle.x86_64.rpm
+
+<span class="comment"># Or build from source</span>
+git clone https://github.com/Mirkko/joytoggle.git
+cd joytoggle && ./install.sh</pre>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="container">
+    GPL v3 &middot; Built with <a href="https://github.com/zed-industries/zed/tree/main/crates/gpui">GPUI</a> (Zed's engine) on Arch Linux &middot;
+    <a href="https://github.com/Mirkko/joytoggle">github.com/Mirkko/joytoggle</a>
+  </div>
+</footer>
+
+<script>
+  function switchTab(name) {
+    document.querySelectorAll('.tab').forEach((t, i) => {
+      const names = ['arch', 'ubuntu', 'fedora'];
+      t.classList.toggle('active', names[i] === name);
+    });
+    document.querySelectorAll('.tab-content').forEach(c => {
+      c.classList.toggle('active', c.id === 'tab-' + name);
+    });
+  }
+</script>
+</body>
+</html>
