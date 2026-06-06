@@ -1,0 +1,19 @@
+[Unit]
+Description=JoyToggle daemon — manages joystick device states via D-Bus
+After=dbus.service polkit.service
+Requires=dbus.service
+
+[Service]
+Type=dbus
+BusName=org.joytoggle.Daemon
+ExecStart=/usr/bin/joytoggle-daemon
+User=root
+
+# Hardening — allow writes to sysfs bind/unbind and state file only
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/var/lib/joytoggle /sys/bus/usb/drivers/usbhid
+
+[Install]
+WantedBy=multi-user.target

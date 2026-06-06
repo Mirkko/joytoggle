@@ -21,4 +21,5 @@ tokio              = { workspace = true }
 tracing            = { workspace = true }
 tracing-subscriber = { workspace = true }
 zbus               = { version = "5", features = ["tokio"] }
+zbus_macros        = "5"
 gpui               = "0.2.2"
