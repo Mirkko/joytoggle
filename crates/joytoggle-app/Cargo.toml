@@ -23,3 +23,17 @@ tracing-subscriber = { workspace = true }
 zbus               = { version = "5", features = ["blocking-api"] }
 zbus_macros        = "5"
 gpui               = "0.2.2"
+
+[package.metadata.deb]
+name            = "joytoggle"
+maintainer      = "Mikodzi <mirek@utumno.cc>"
+copyright       = "2025 Mikodzi"
+license-file    = ["../../LICENSE", "0"]
+extended-description = "Enable or disable joystick and sim controller devices without unplugging. Built for sim pilots using HOTAS setups."
+depends         = "$auto, libglib2.0-0, polkit, policykit-1"
+section         = "utils"
+priority        = "optional"
+assets = [
+    ["target/release/joytoggle", "usr/bin/joytoggle", "755"],
+    ["../../packaging/polkit/org.joytoggle.daemon.policy", "usr/share/polkit-1/actions/org.joytoggle.daemon.policy", "644"],
+]

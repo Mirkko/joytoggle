@@ -22,3 +22,20 @@ tracing            = { workspace = true }
 tracing-subscriber = { workspace = true }
 zbus               = { version = "5", features = ["tokio"] }
 nix                = { version = "0.29", features = ["user"] }
+
+[package.metadata.deb]
+name            = "joytoggle-daemon"
+maintainer      = "Mikodzi <mirek@utumno.cc>"
+copyright       = "2025 Mikodzi"
+license-file    = ["../../LICENSE", "0"]
+extended-description = "JoyToggle D-Bus system daemon. Manages joystick device bind/unbind at the kernel level via systemd. Required for the joytoggle GUI to function."
+depends         = "$auto, polkit, policykit-1, systemd"
+section         = "utils"
+priority        = "optional"
+maintainer-scripts = "../../packaging/debian/"
+systemd-units   = { enable = true }
+assets = [
+    ["target/release/joytoggle-daemon", "usr/bin/joytoggle-daemon", "755"],
+    ["../../packaging/systemd/joytoggle-daemon.service", "lib/systemd/system/joytoggle-daemon.service", "644"],
+    ["../../packaging/polkit/org.joytoggle.daemon.policy", "usr/share/polkit-1/actions/org.joytoggle.daemon.policy", "644"],
+]
