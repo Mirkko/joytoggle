@@ -20,6 +20,6 @@ thiserror          = { workspace = true }
 tokio              = { workspace = true }
 tracing            = { workspace = true }
 tracing-subscriber = { workspace = true }
-zbus               = { version = "5", features = ["tokio"] }
+zbus               = { version = "5", features = ["blocking-api"] }
 zbus_macros        = "5"
 gpui               = "0.2.2"

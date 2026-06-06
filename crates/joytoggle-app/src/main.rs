@@ -4,33 +4,29 @@ use gpui::{
     App, Application, Bounds, Context, FontWeight, MouseButton, SharedString, Window,
     WindowBounds, WindowOptions, div, hsla, prelude::*, px, size, white,
 };
+use dbus::JoyToggleDaemonProxyBlocking;
 use joytoggle_core::{Device, DeviceType, InterfaceId};
-use tokio::runtime::Handle;
 
-// ── D-Bus helpers ─────────────────────────────────────────────────────────────
+// ── D-Bus helpers — zbus blocking API, no tokio needed in the UI process ──────
 
-fn fetch_devices(handle: &Handle) -> Vec<Device> {
-    handle.block_on(async {
-        let conn  = zbus::Connection::system().await?;
-        let proxy = dbus::JoyToggleDaemonProxy::new(&conn).await?;
-        let json  = proxy.list_devices().await?;
-        let devs: Vec<Device> = serde_json::from_str(&json)?;
-        anyhow::Ok(devs)
-    })
+fn fetch_devices() -> Vec<Device> {
+    (|| -> anyhow::Result<Vec<Device>> {
+        let conn  = zbus::blocking::Connection::system()?;
+        let proxy = dbus::JoyToggleDaemonProxyBlocking::new(&conn)?;
+        let json  = proxy.list_devices()?;
+        Ok(serde_json::from_str(&json)?)
+    })()
     .unwrap_or_default()
 }
 
-fn call_toggle(handle: &Handle, iface_id: &str, enable: bool) -> bool {
-    handle.block_on(async {
-        let conn  = zbus::Connection::system().await?;
-        let proxy = dbus::JoyToggleDaemonProxy::new(&conn).await?;
-        if enable {
-            proxy.enable_device(iface_id).await?;
-        } else {
-            proxy.disable_device(iface_id).await?;
-        }
-        anyhow::Ok(())
-    })
+fn call_toggle(iface_id: &str, enable: bool) -> bool {
+    (|| -> anyhow::Result<()> {
+        let conn  = zbus::blocking::Connection::system()?;
+        let proxy = dbus::JoyToggleDaemonProxyBlocking::new(&conn)?;
+        if enable { proxy.enable_device(iface_id)? }
+        else      { proxy.disable_device(iface_id)? }
+        Ok(())
+    })()
     .is_ok()
 }
 
@@ -43,13 +39,12 @@ struct DeviceItem {
 
 struct JoyToggleWindow {
     devices:      Vec<DeviceItem>,
-    tokio_handle: Handle,
     daemon_error: Option<String>,
 }
 
 impl JoyToggleWindow {
-    fn new(tokio_handle: Handle) -> Self {
-        let devs = fetch_devices(&tokio_handle);
+    fn new() -> Self {
+        let devs = fetch_devices();
         let (devices, daemon_error) = if devs.is_empty() {
             (
                 mock_devices(),
@@ -64,7 +59,6 @@ impl JoyToggleWindow {
                 let enabled = d.enabled;
                 DeviceItem { device: d, enabled }
             }).collect(),
-            tokio_handle,
             daemon_error,
         }
     }
@@ -74,7 +68,7 @@ impl JoyToggleWindow {
     }
 
     fn refresh(&mut self) {
-        let fresh = fetch_devices(&self.tokio_handle);
+        let fresh = fetch_devices();
         if !fresh.is_empty() {
             self.daemon_error = None;
             self.devices = fresh.into_iter().map(|d| {
@@ -167,7 +161,7 @@ impl Render for JoyToggleWindow {
                         .flex().items_center().px(px(3.0)).cursor_pointer()
                         .on_mouse_down(MouseButton::Left, cx.listener(move |this, _, _, cx| {
                             let want_on = !this.devices[i].enabled;
-                            let ok = call_toggle(&this.tokio_handle, &iface_id, want_on);
+                            let ok = call_toggle(&iface_id, want_on);
                             if ok {
                                 this.devices[i].enabled = want_on;
                             }
@@ -231,12 +225,6 @@ impl Render for JoyToggleWindow {
 // ── Entry point ───────────────────────────────────────────────────────────────
 
 fn main() {
-    // Single tokio runtime for all D-Bus calls.
-    // GPUI callbacks use handle.block_on — acceptable for a spike.
-    // TODO: non-blocking via cx.spawn + tokio channel when GPUI executor matures.
-    let rt     = tokio::runtime::Runtime::new().expect("tokio runtime");
-    let handle = rt.handle().clone();
-
     Application::new().run(|cx: &mut App| {
         let bounds = Bounds::centered(None, size(px(520.0), px(500.0)), cx);
         cx.open_window(
@@ -244,7 +232,7 @@ fn main() {
                 window_bounds: Some(WindowBounds::Windowed(bounds)),
                 ..Default::default()
             },
-            |_, cx| cx.new(|_| JoyToggleWindow::new(handle)),
+            |_, cx| cx.new(|_| JoyToggleWindow::new()),
         )
         .unwrap();
         cx.activate(true);
