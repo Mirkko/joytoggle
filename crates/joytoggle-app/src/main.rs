@@ -9,7 +9,10 @@ use gpui::{
     App, Application, Bounds, Context, FontWeight, MouseButton, SharedString, Window,
     WindowBounds, WindowOptions, div, hsla, prelude::*, px, size, white,
 };
-use joytoggle_core::{Device, DeviceType, InterfaceId};
+use joytoggle_core::{
+    Device, DeviceType, InterfaceId,
+    load_hidden, save_hidden, load_state,
+};
 
 // ── D-Bus helpers (zbus blocking-api, no tokio needed) ───────────────────────
 
@@ -50,6 +53,10 @@ struct JoyToggleWindow {
 
 impl JoyToggleWindow {
     fn new(cx: &mut Context<Self>) -> Self {
+        // Load persisted hidden list and saved device state
+        let manually_hidden: HashSet<String> = load_hidden();
+        let saved_state = load_state();
+
         let devs  = fetch_devices();
         let error = if devs.is_empty() {
             Some("joytoggle-daemon not reachable — showing mock data".to_owned())
@@ -94,10 +101,16 @@ impl JoyToggleWindow {
 
         Self {
             devices: devices.into_iter().map(|d| {
-                let e = d.enabled;
-                DeviceItem { device: d, enabled: e, hidden: false }
+                let iface = d.iface_id().as_str().to_owned();
+                // Saved state overrides live state when daemon not running
+                let enabled = saved_state
+                    .get(&joytoggle_core::InterfaceId::from(iface.as_str()))
+                    .copied()
+                    .unwrap_or(d.enabled);
+                let hidden = d.autohide || manually_hidden.contains(&iface);
+                DeviceItem { device: d, enabled, hidden }
             }).collect(),
-            manually_hidden: HashSet::new(),
+            manually_hidden,
             show_hidden:     false,
             daemon_error:    error,
             pending_refresh: pending,
@@ -224,6 +237,7 @@ impl Render for JoyToggleWindow {
                         .on_mouse_down(MouseButton::Left, cx.listener(move |this, _, _, cx| {
                             this.manually_hidden.insert(iface_id.clone());
                             if let Some(d) = this.devices.get_mut(i) { d.hidden = true; }
+                            let _ = save_hidden(&this.manually_hidden);
                             cx.notify();
                         }))
                         .child("hide"),
@@ -271,6 +285,7 @@ impl Render for JoyToggleWindow {
                             .on_mouse_down(MouseButton::Left, cx.listener(move |this, _, _, cx| {
                                 this.manually_hidden.remove(&iface_id);
                                 if let Some(d) = this.devices.get_mut(i) { d.hidden = false; }
+                                let _ = save_hidden(&this.manually_hidden);
                                 cx.notify();
                             }))
                             .child("unhide"),

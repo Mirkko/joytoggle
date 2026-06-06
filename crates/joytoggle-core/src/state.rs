@@ -78,6 +78,47 @@ impl FileCacheStore {
     }
 }
 
+// ── Free-function helpers for app-level persistence ───────────────────────────
+
+/// Load the set of manually-hidden interface IDs.
+pub fn load_hidden() -> std::collections::HashSet<String> {
+    let path = user_config_dir().join("hidden.json");
+    fs::read_to_string(path)
+        .ok()
+        .and_then(|data| serde_json::from_str(&data).ok())
+        .unwrap_or_default()
+}
+
+/// Persist the set of manually-hidden interface IDs.
+pub fn save_hidden(hidden: &std::collections::HashSet<String>) -> anyhow::Result<()> {
+    let path = user_config_dir().join("hidden.json");
+    fs::create_dir_all(path.parent().unwrap())?;
+    fs::write(path, serde_json::to_string_pretty(hidden)?)?;
+    Ok(())
+}
+
+/// Load shown interface IDs (force-shown despite autohide).
+pub fn load_shown() -> std::collections::HashSet<String> {
+    let path = user_config_dir().join("shown.json");
+    fs::read_to_string(path)
+        .ok()
+        .and_then(|data| serde_json::from_str(&data).ok())
+        .unwrap_or_default()
+}
+
+/// Persist shown interface IDs.
+pub fn save_shown(shown: &std::collections::HashSet<String>) -> anyhow::Result<()> {
+    let path = user_config_dir().join("shown.json");
+    fs::create_dir_all(path.parent().unwrap())?;
+    fs::write(path, serde_json::to_string_pretty(shown)?)?;
+    Ok(())
+}
+
+/// Convenience: load the current device state directly.
+pub fn load_state() -> DeviceState {
+    FileStateStore.load()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
