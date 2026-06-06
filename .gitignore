@@ -3,3 +3,4 @@ __pycache__/
 *.pyo
 *.pkg.tar.zst
 *.tar.gz
+.notes
