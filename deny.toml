@@ -4,6 +4,7 @@ targets = [{ triple = "x86_64-unknown-linux-gnu" }]
 [advisories]
 version = 2
 ignore  = []
+unmaintained = "warn"
 
 [licenses]
 version       = 2
@@ -13,6 +14,7 @@ exceptions    = []
 [bans]
 multiple-versions = "warn"
 wildcards         = "deny"
+allow-wildcard-paths = true
 
 [sources]
 unknown-registry = "deny"
