@@ -1,6 +1,7 @@
 [package]
 name        = "joytoggle-daemon"
 description = "D-Bus system service — replaces pkexec, runs as root via systemd"
+publish     = false
 version.workspace    = true
 edition.workspace    = true
 authors.workspace    = true

@@ -1,6 +1,7 @@
 [package]
 name        = "joytoggle-app"
 description = "GPUI frontend for JoyToggle"
+publish     = false
 version.workspace    = true
 edition.workspace    = true
 authors.workspace    = true
