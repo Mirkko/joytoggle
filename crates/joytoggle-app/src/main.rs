@@ -6,19 +6,16 @@ use std::time::Duration;
 
 use dbus::JoyToggleDaemonProxyBlocking;
 use gpui::{
-    App, Application, Bounds, Context, FontWeight, MouseButton, SharedString, Window,
-    WindowBounds, WindowOptions, div, hsla, prelude::*, px, size, white,
+    div, hsla, prelude::*, px, size, white, App, Application, Bounds, Context, FontWeight,
+    MouseButton, SharedString, Window, WindowBounds, WindowOptions,
 };
-use joytoggle_core::{
-    Device, DeviceType, InterfaceId,
-    load_hidden, save_hidden, load_state,
-};
+use joytoggle_core::{load_hidden, load_state, save_hidden, Device, DeviceType, InterfaceId};
 
 // ── D-Bus helpers (zbus blocking-api, no tokio needed) ───────────────────────
 
 fn fetch_devices() -> Vec<Device> {
     (|| -> anyhow::Result<Vec<Device>> {
-        let conn  = zbus::blocking::Connection::system()?;
+        let conn = zbus::blocking::Connection::system()?;
         let proxy = JoyToggleDaemonProxyBlocking::new(&conn)?;
         Ok(serde_json::from_str(&proxy.list_devices()?)?)
     })()
@@ -27,9 +24,13 @@ fn fetch_devices() -> Vec<Device> {
 
 fn call_toggle(iface_id: &str, enable: bool) -> bool {
     (|| -> anyhow::Result<()> {
-        let conn  = zbus::blocking::Connection::system()?;
+        let conn = zbus::blocking::Connection::system()?;
         let proxy = JoyToggleDaemonProxyBlocking::new(&conn)?;
-        if enable { proxy.enable_device(iface_id)? } else { proxy.disable_device(iface_id)? }
+        if enable {
+            proxy.enable_device(iface_id)?
+        } else {
+            proxy.disable_device(iface_id)?
+        }
         Ok(())
     })()
     .is_ok()
@@ -38,16 +39,16 @@ fn call_toggle(iface_id: &str, enable: bool) -> bool {
 // ── App state ─────────────────────────────────────────────────────────────────
 
 struct DeviceItem {
-    device:  Device,
+    device: Device,
     enabled: bool,
-    hidden:  bool,
+    hidden: bool,
 }
 
 struct JoyToggleWindow {
-    devices:         Vec<DeviceItem>,
-    manually_hidden: HashSet<String>,  // iface IDs manually hidden by user
-    show_hidden:     bool,             // hidden section expanded/collapsed
-    daemon_error:    Option<String>,
+    devices: Vec<DeviceItem>,
+    manually_hidden: HashSet<String>, // iface IDs manually hidden by user
+    show_hidden: bool,                // hidden section expanded/collapsed
+    daemon_error: Option<String>,
     pending_refresh: Arc<Mutex<Option<Vec<Device>>>>,
 }
 
@@ -57,16 +58,20 @@ impl JoyToggleWindow {
         let manually_hidden: HashSet<String> = load_hidden();
         let saved_state = load_state();
 
-        let devs  = fetch_devices();
+        let devs = fetch_devices();
         let error = if devs.is_empty() {
             Some("joytoggle-daemon not reachable — showing mock data".to_owned())
         } else {
             None
         };
-        let devices = if devs.is_empty() { mock_devices() } else { devs };
+        let devices = if devs.is_empty() {
+            mock_devices()
+        } else {
+            devs
+        };
 
         let pending = Arc::new(Mutex::new(None::<Vec<Device>>));
-        let bg      = pending.clone();
+        let bg = pending.clone();
 
         // Background thread: re-fetch every 2s
         std::thread::spawn(move || loop {
@@ -76,11 +81,15 @@ impl JoyToggleWindow {
 
         // GPUI timer: drain pending refresh into view state
         cx.spawn(async move |weak, cx| loop {
-            cx.background_executor().timer(Duration::from_millis(750)).await;
+            cx.background_executor()
+                .timer(Duration::from_millis(750))
+                .await;
             weak.update(cx, |view, cx| {
                 let mut guard = view.pending_refresh.lock().unwrap();
                 if let Some(fresh) = guard.take() {
-                    if !fresh.is_empty() { view.daemon_error = None; }
+                    if !fresh.is_empty() {
+                        view.daemon_error = None;
+                    }
                     let changed = fresh.len() != view.devices.len()
                         || fresh.iter().zip(view.devices.iter()).any(|(f, d)| {
                             f.iface_id().as_str() != d.device.iface_id().as_str()
@@ -88,45 +97,72 @@ impl JoyToggleWindow {
                         });
                     if changed {
                         let hidden = &view.manually_hidden;
-                        view.devices = fresh.into_iter().map(|d| {
-                            let e = d.enabled;
-                            let h = d.autohide || hidden.contains(d.iface_id().as_str());
-                            DeviceItem { device: d, enabled: e, hidden: h }
-                        }).collect();
+                        view.devices = fresh
+                            .into_iter()
+                            .map(|d| {
+                                let e = d.enabled;
+                                let h = d.autohide || hidden.contains(d.iface_id().as_str());
+                                DeviceItem {
+                                    device: d,
+                                    enabled: e,
+                                    hidden: h,
+                                }
+                            })
+                            .collect();
                         cx.notify();
                     }
                 }
-            }).ok();
-        }).detach();
+            })
+            .ok();
+        })
+        .detach();
 
         Self {
-            devices: devices.into_iter().map(|d| {
-                let iface = d.iface_id().as_str().to_owned();
-                // Saved state overrides live state when daemon not running
-                let enabled = saved_state
-                    .get(&joytoggle_core::InterfaceId::from(iface.as_str()))
-                    .copied()
-                    .unwrap_or(d.enabled);
-                let hidden = d.autohide || manually_hidden.contains(&iface);
-                DeviceItem { device: d, enabled, hidden }
-            }).collect(),
+            devices: devices
+                .into_iter()
+                .map(|d| {
+                    let iface = d.iface_id().as_str().to_owned();
+                    // Saved state overrides live state when daemon not running
+                    let enabled = saved_state
+                        .get(&joytoggle_core::InterfaceId::from(iface.as_str()))
+                        .copied()
+                        .unwrap_or(d.enabled);
+                    let hidden = d.autohide || manually_hidden.contains(&iface);
+                    DeviceItem {
+                        device: d,
+                        enabled,
+                        hidden,
+                    }
+                })
+                .collect(),
             manually_hidden,
-            show_hidden:     false,
-            daemon_error:    error,
+            show_hidden: false,
+            daemon_error: error,
             pending_refresh: pending,
         }
     }
 
     fn visible_devices(&self) -> Vec<(usize, &DeviceItem)> {
-        self.devices.iter().enumerate().filter(|(_, d)| !d.hidden).collect()
+        self.devices
+            .iter()
+            .enumerate()
+            .filter(|(_, d)| !d.hidden)
+            .collect()
     }
 
     fn hidden_devices(&self) -> Vec<(usize, &DeviceItem)> {
-        self.devices.iter().enumerate().filter(|(_, d)| d.hidden).collect()
+        self.devices
+            .iter()
+            .enumerate()
+            .filter(|(_, d)| d.hidden)
+            .collect()
     }
 
     fn active_count(&self) -> usize {
-        self.visible_devices().iter().filter(|(_, d)| d.enabled).count()
+        self.visible_devices()
+            .iter()
+            .filter(|(_, d)| d.enabled)
+            .count()
     }
 
     fn refresh_now(&mut self) {
@@ -134,11 +170,18 @@ impl JoyToggleWindow {
         if !fresh.is_empty() {
             self.daemon_error = None;
             let hidden = &self.manually_hidden;
-            self.devices = fresh.into_iter().map(|d| {
-                let e = d.enabled;
-                let h = d.autohide || hidden.contains(d.iface_id().as_str());
-                DeviceItem { device: d, enabled: e, hidden: h }
-            }).collect();
+            self.devices = fresh
+                .into_iter()
+                .map(|d| {
+                    let e = d.enabled;
+                    let h = d.autohide || hidden.contains(d.iface_id().as_str());
+                    DeviceItem {
+                        device: d,
+                        enabled: e,
+                        hidden: h,
+                    }
+                })
+                .collect();
         }
     }
 }
@@ -148,28 +191,40 @@ impl JoyToggleWindow {
 fn mock_devices() -> Vec<Device> {
     vec![
         Device {
-            event: "event0".into(), dev_path: "/dev/input/event0".into(),
+            event: "event0".into(),
+            dev_path: "/dev/input/event0".into(),
             name: "VIRPIL VPC Stick WarBRD-D (mock)".into(),
-            device_type: DeviceType::Joystick, autohide: false,
+            device_type: DeviceType::Joystick,
+            autohide: false,
             usb_path: Some("/sys/bus/usb/1-11.4.1:1.0".into()),
             interface_id: Some(InterfaceId::from("1-11.4.1:1.0")),
-            vendor_id: None, product_id: None, enabled: true,
+            vendor_id: None,
+            product_id: None,
+            enabled: true,
         },
         Device {
-            event: "event1".into(), dev_path: "/dev/input/event1".into(),
+            event: "event1".into(),
+            dev_path: "/dev/input/event1".into(),
             name: "VIRPIL VPC VMAX Throttle (mock)".into(),
-            device_type: DeviceType::Throttle, autohide: false,
+            device_type: DeviceType::Throttle,
+            autohide: false,
             usb_path: Some("/sys/bus/usb/1-11.4.3:1.0".into()),
             interface_id: Some(InterfaceId::from("1-11.4.3:1.0")),
-            vendor_id: None, product_id: None, enabled: true,
+            vendor_id: None,
+            product_id: None,
+            enabled: true,
         },
         Device {
-            event: "event2".into(), dev_path: "/dev/input/event2".into(),
+            event: "event2".into(),
+            dev_path: "/dev/input/event2".into(),
             name: "Glorious GMMK Pro ISO Consumer Control (mock)".into(),
-            device_type: DeviceType::Gamepad, autohide: true,
+            device_type: DeviceType::Gamepad,
+            autohide: true,
             usb_path: Some("/sys/bus/usb/1-5:1.1".into()),
             interface_id: Some(InterfaceId::from("1-5:1.1")),
-            vendor_id: None, product_id: None, enabled: true,
+            vendor_id: None,
+            product_id: None,
+            enabled: true,
         },
     ]
 }
@@ -178,119 +233,227 @@ fn mock_devices() -> Vec<Device> {
 
 fn device_icon(t: &DeviceType) -> &'static str {
     match t {
-        DeviceType::Joystick      => "◈",
-        DeviceType::Throttle      => "▶",
-        DeviceType::RudderPedals  => "↕",
-        DeviceType::Gamepad       => "⊕",
+        DeviceType::Joystick => "◈",
+        DeviceType::Throttle => "▶",
+        DeviceType::RudderPedals => "↕",
+        DeviceType::Gamepad => "⊕",
         DeviceType::SteeringWheel => "◎",
-        DeviceType::Unknown       => "?",
+        DeviceType::Unknown => "?",
     }
 }
 
 fn type_color(t: &DeviceType) -> gpui::Hsla {
     match t {
-        DeviceType::Joystick      => hsla(0.55, 0.7, 0.6, 1.0),
-        DeviceType::Throttle      => hsla(0.08, 0.7, 0.6, 1.0),
-        DeviceType::RudderPedals  => hsla(0.75, 0.6, 0.6, 1.0),
-        DeviceType::Gamepad       => hsla(0.33, 0.6, 0.55, 1.0),
+        DeviceType::Joystick => hsla(0.55, 0.7, 0.6, 1.0),
+        DeviceType::Throttle => hsla(0.08, 0.7, 0.6, 1.0),
+        DeviceType::RudderPedals => hsla(0.75, 0.6, 0.6, 1.0),
+        DeviceType::Gamepad => hsla(0.33, 0.6, 0.55, 1.0),
         DeviceType::SteeringWheel => hsla(0.15, 0.65, 0.6, 1.0),
-        DeviceType::Unknown       => hsla(0.0, 0.0, 0.5, 1.0),
+        DeviceType::Unknown => hsla(0.0, 0.0, 0.5, 1.0),
     }
 }
 
 impl Render for JoyToggleWindow {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let active       = self.active_count();
-        let total        = self.visible_devices().len();
+        let active = self.active_count();
+        let total = self.visible_devices().len();
         let error_banner = self.daemon_error.clone();
-        let n_hidden     = self.hidden_devices().len();
-        let show_hidden  = self.show_hidden;
+        let n_hidden = self.hidden_devices().len();
+        let show_hidden = self.show_hidden;
 
         // ── Visible device rows ───────────────────────────────────────────────
-        let vis_rows: Vec<_> = self.visible_devices().into_iter().map(|(i, item)| {
-            let enabled      = item.enabled;
-            let name         = item.device.name.clone();
-            let dtype        = item.device.device_type.clone();
-            let iface_id     = item.device.iface_id().as_str().to_owned();
-            let bg           = if enabled { hsla(0.0,0.0,0.13,1.0) } else { hsla(0.0,0.0,0.09,1.0) };
-            let name_color   = if enabled { hsla(0.0,0.0,0.92,1.0) } else { hsla(0.0,0.0,0.4,1.0) };
-            let toggle_track = if enabled { hsla(0.38,0.6,0.38,1.0) } else { hsla(0.0,0.0,0.22,1.0) };
-            let iface_disp   = iface_id.clone();
+        let vis_rows: Vec<_> = self
+            .visible_devices()
+            .into_iter()
+            .map(|(i, item)| {
+                let enabled = item.enabled;
+                let name = item.device.name.clone();
+                let dtype = item.device.device_type.clone();
+                let iface_id = item.device.iface_id().as_str().to_owned();
+                let bg = if enabled {
+                    hsla(0.0, 0.0, 0.13, 1.0)
+                } else {
+                    hsla(0.0, 0.0, 0.09, 1.0)
+                };
+                let name_color = if enabled {
+                    hsla(0.0, 0.0, 0.92, 1.0)
+                } else {
+                    hsla(0.0, 0.0, 0.4, 1.0)
+                };
+                let toggle_track = if enabled {
+                    hsla(0.38, 0.6, 0.38, 1.0)
+                } else {
+                    hsla(0.0, 0.0, 0.22, 1.0)
+                };
+                let iface_disp = iface_id.clone();
 
-            div()
-                .flex().flex_row().items_center().gap_3()
-                .px_4().py(px(10.0)).mb(px(2.0)).rounded_lg().bg(bg)
-                .child(div().w_6().h_6().flex().items_center().justify_center()
-                    .text_color(type_color(&dtype)).child(device_icon(&dtype)))
-                .child(
-                    div().flex().flex_col().flex_1()
-                        .child(div().text_color(name_color).text_sm()
-                            .font_weight(FontWeight::MEDIUM).child(name.clone()))
-                        .child(div().text_color(hsla(0.0,0.0,0.35,1.0)).text_xs()
-                            .child(SharedString::from(format!("{} — {}", dtype, iface_disp)))),
-                )
-                .child(
-                    // Hide button
-                    div().px_2().py(px(3.0)).rounded_md().mr_2()
-                        .bg(hsla(0.0,0.0,0.18,1.0)).text_xs()
-                        .text_color(hsla(0.0,0.0,0.5,1.0)).cursor_pointer()
-                        .on_mouse_down(MouseButton::Left, cx.listener(move |this, _, _, cx| {
-                            this.manually_hidden.insert(iface_id.clone());
-                            if let Some(d) = this.devices.get_mut(i) { d.hidden = true; }
-                            let _ = save_hidden(&this.manually_hidden);
-                            cx.notify();
-                        }))
-                        .child("hide"),
-                )
-                .child(
-                    // Toggle switch
-                    div().w(px(44.0)).h(px(24.0)).rounded_full().bg(toggle_track)
-                        .flex().items_center().px(px(3.0)).cursor_pointer()
-                        .on_mouse_down(MouseButton::Left, cx.listener(move |this, _, _, cx| {
-                            let want_on = !this.devices[i].enabled;
-                            let iface   = this.devices[i].device.iface_id().as_str().to_owned();
-                            if call_toggle(&iface, want_on) {
-                                this.devices[i].enabled = want_on;
-                            }
-                            cx.notify();
-                        }))
-                        .child(div().w(px(18.0)).h(px(18.0)).rounded_full().bg(white())
-                            .when(enabled, |d| d.ml_auto())),
-                )
-        }).collect();
+                div()
+                    .flex()
+                    .flex_row()
+                    .items_center()
+                    .gap_3()
+                    .px_4()
+                    .py(px(10.0))
+                    .mb(px(2.0))
+                    .rounded_lg()
+                    .bg(bg)
+                    .child(
+                        div()
+                            .w_6()
+                            .h_6()
+                            .flex()
+                            .items_center()
+                            .justify_center()
+                            .text_color(type_color(&dtype))
+                            .child(device_icon(&dtype)),
+                    )
+                    .child(
+                        div()
+                            .flex()
+                            .flex_col()
+                            .flex_1()
+                            .child(
+                                div()
+                                    .text_color(name_color)
+                                    .text_sm()
+                                    .font_weight(FontWeight::MEDIUM)
+                                    .child(name.clone()),
+                            )
+                            .child(
+                                div().text_color(hsla(0.0, 0.0, 0.35, 1.0)).text_xs().child(
+                                    SharedString::from(format!("{} — {}", dtype, iface_disp)),
+                                ),
+                            ),
+                    )
+                    .child(
+                        // Hide button
+                        div()
+                            .px_2()
+                            .py(px(3.0))
+                            .rounded_md()
+                            .mr_2()
+                            .bg(hsla(0.0, 0.0, 0.18, 1.0))
+                            .text_xs()
+                            .text_color(hsla(0.0, 0.0, 0.5, 1.0))
+                            .cursor_pointer()
+                            .on_mouse_down(
+                                MouseButton::Left,
+                                cx.listener(move |this, _, _, cx| {
+                                    this.manually_hidden.insert(iface_id.clone());
+                                    if let Some(d) = this.devices.get_mut(i) {
+                                        d.hidden = true;
+                                    }
+                                    let _ = save_hidden(&this.manually_hidden);
+                                    cx.notify();
+                                }),
+                            )
+                            .child("hide"),
+                    )
+                    .child(
+                        // Toggle switch
+                        div()
+                            .w(px(44.0))
+                            .h(px(24.0))
+                            .rounded_full()
+                            .bg(toggle_track)
+                            .flex()
+                            .items_center()
+                            .px(px(3.0))
+                            .cursor_pointer()
+                            .on_mouse_down(
+                                MouseButton::Left,
+                                cx.listener(move |this, _, _, cx| {
+                                    let want_on = !this.devices[i].enabled;
+                                    let iface =
+                                        this.devices[i].device.iface_id().as_str().to_owned();
+                                    if call_toggle(&iface, want_on) {
+                                        this.devices[i].enabled = want_on;
+                                    }
+                                    cx.notify();
+                                }),
+                            )
+                            .child(
+                                div()
+                                    .w(px(18.0))
+                                    .h(px(18.0))
+                                    .rounded_full()
+                                    .bg(white())
+                                    .when(enabled, |d| d.ml_auto()),
+                            ),
+                    )
+            })
+            .collect();
 
         // ── Hidden devices section ────────────────────────────────────────────
         let hidden_rows: Vec<_> = if show_hidden {
-            self.hidden_devices().into_iter().map(|(i, item)| {
-                let name     = item.device.name.clone();
-                let iface_id = item.device.iface_id().as_str().to_owned();
-                let is_auto  = item.device.autohide;
+            self.hidden_devices()
+                .into_iter()
+                .map(|(i, item)| {
+                    let name = item.device.name.clone();
+                    let iface_id = item.device.iface_id().as_str().to_owned();
+                    let is_auto = item.device.autohide;
 
-                div()
-                    .flex().flex_row().items_center().gap_3()
-                    .px_4().py(px(8.0)).mb(px(2.0)).rounded_lg()
-                    .bg(hsla(0.0,0.0,0.08,1.0))
-                    .child(div().text_color(hsla(0.0,0.0,0.35,1.0)).text_xs().child("⊘"))
-                    .child(
-                        div().flex().flex_col().flex_1()
-                            .child(div().text_sm().text_color(hsla(0.0,0.0,0.35,1.0))
-                                .child(name))
-                            .child(div().text_xs().text_color(hsla(0.0,0.0,0.25,1.0))
-                                .child(if is_auto { "auto-hidden" } else { "hidden by user" })),
-                    )
-                    .child(
-                        div().px_2().py(px(3.0)).rounded_md()
-                            .bg(hsla(0.0,0.0,0.18,1.0)).text_xs()
-                            .text_color(hsla(0.0,0.0,0.6,1.0)).cursor_pointer()
-                            .on_mouse_down(MouseButton::Left, cx.listener(move |this, _, _, cx| {
-                                this.manually_hidden.remove(&iface_id);
-                                if let Some(d) = this.devices.get_mut(i) { d.hidden = false; }
-                                let _ = save_hidden(&this.manually_hidden);
-                                cx.notify();
-                            }))
-                            .child("unhide"),
-                    )
-            }).collect()
+                    div()
+                        .flex()
+                        .flex_row()
+                        .items_center()
+                        .gap_3()
+                        .px_4()
+                        .py(px(8.0))
+                        .mb(px(2.0))
+                        .rounded_lg()
+                        .bg(hsla(0.0, 0.0, 0.08, 1.0))
+                        .child(
+                            div()
+                                .text_color(hsla(0.0, 0.0, 0.35, 1.0))
+                                .text_xs()
+                                .child("⊘"),
+                        )
+                        .child(
+                            div()
+                                .flex()
+                                .flex_col()
+                                .flex_1()
+                                .child(
+                                    div()
+                                        .text_sm()
+                                        .text_color(hsla(0.0, 0.0, 0.35, 1.0))
+                                        .child(name),
+                                )
+                                .child(
+                                    div().text_xs().text_color(hsla(0.0, 0.0, 0.25, 1.0)).child(
+                                        if is_auto {
+                                            "auto-hidden"
+                                        } else {
+                                            "hidden by user"
+                                        },
+                                    ),
+                                ),
+                        )
+                        .child(
+                            div()
+                                .px_2()
+                                .py(px(3.0))
+                                .rounded_md()
+                                .bg(hsla(0.0, 0.0, 0.18, 1.0))
+                                .text_xs()
+                                .text_color(hsla(0.0, 0.0, 0.6, 1.0))
+                                .cursor_pointer()
+                                .on_mouse_down(
+                                    MouseButton::Left,
+                                    cx.listener(move |this, _, _, cx| {
+                                        this.manually_hidden.remove(&iface_id);
+                                        if let Some(d) = this.devices.get_mut(i) {
+                                            d.hidden = false;
+                                        }
+                                        let _ = save_hidden(&this.manually_hidden);
+                                        cx.notify();
+                                    }),
+                                )
+                                .child("unhide"),
+                        )
+                })
+                .collect()
         } else {
             vec![]
         };

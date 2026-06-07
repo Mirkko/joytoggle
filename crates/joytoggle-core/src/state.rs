@@ -55,7 +55,9 @@ pub struct FileCacheStore {
 
 impl Default for FileCacheStore {
     fn default() -> Self {
-        Self { path: user_config_dir().join("devices_cache.json") }
+        Self {
+            path: user_config_dir().join("devices_cache.json"),
+        }
     }
 }
 
@@ -127,7 +129,9 @@ mod tests {
     use tempfile::TempDir;
 
     fn make_store(dir: &TempDir) -> FileCacheStore {
-        FileCacheStore { path: dir.path().join("cache.json") }
+        FileCacheStore {
+            path: dir.path().join("cache.json"),
+        }
     }
 
     fn make_device(name: &str, autohide: bool) -> Device {
@@ -149,7 +153,10 @@ mod tests {
     fn cache_roundtrip_excludes_autohide() {
         let dir = TempDir::new().unwrap();
         let store = make_store(&dir);
-        let devices = vec![make_device("VIRPIL Stick", false), make_device("USB Keyboard", true)];
+        let devices = vec![
+            make_device("VIRPIL Stick", false),
+            make_device("USB Keyboard", true),
+        ];
         store.save_cache(&devices).unwrap();
         let loaded = store.load_cache();
         assert_eq!(loaded.len(), 1);
@@ -159,7 +166,9 @@ mod tests {
     #[test]
     fn cache_empty_on_missing_file() {
         let dir = TempDir::new().unwrap();
-        let store = FileCacheStore { path: dir.path().join("nonexistent.json") };
+        let store = FileCacheStore {
+            path: dir.path().join("nonexistent.json"),
+        };
         assert!(store.load_cache().is_empty());
     }
 
@@ -174,7 +183,8 @@ mod tests {
         let json = serde_json::to_string_pretty(&state).unwrap();
         let path = dir.path().join("state.json");
         fs::write(&path, &json).unwrap();
-        let loaded: DeviceState = serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
+        let loaded: DeviceState =
+            serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
         assert_eq!(loaded.get(&InterfaceId::from("1-6:1.0")), Some(&false));
     }
 }

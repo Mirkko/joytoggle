@@ -146,7 +146,10 @@ impl SysfsReader for LinuxSysfsReader {
                 .as_ref()
                 .and_then(|p| p.parent())
                 .map(|parent| {
-                    (read_id_file(parent, "idVendor"), read_id_file(parent, "idProduct"))
+                    (
+                        read_id_file(parent, "idVendor"),
+                        read_id_file(parent, "idProduct"),
+                    )
                 })
                 .unwrap_or((None, None));
 
@@ -180,7 +183,10 @@ mod tests {
 
     #[test]
     fn detect_types() {
-        assert_eq!(detect_type("VIRPIL VPC Rudder Pedals"), DeviceType::RudderPedals);
+        assert_eq!(
+            detect_type("VIRPIL VPC Rudder Pedals"),
+            DeviceType::RudderPedals
+        );
         assert_eq!(detect_type("VIRPIL VMAX Throttle"), DeviceType::Throttle);
         assert_eq!(detect_type("Constellation ALPHA-L"), DeviceType::Joystick);
         assert_eq!(detect_type("Xbox Controller"), DeviceType::Gamepad);

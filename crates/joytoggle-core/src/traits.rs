@@ -37,7 +37,9 @@ pub struct MockDeviceToggler {
 
 impl MockDeviceToggler {
     pub fn new(initially_enabled: impl IntoIterator<Item = InterfaceId>) -> Self {
-        Self { enabled: Mutex::new(initially_enabled.into_iter().collect()) }
+        Self {
+            enabled: Mutex::new(initially_enabled.into_iter().collect()),
+        }
     }
 
     pub fn is_enabled(&self, iface_id: &InterfaceId) -> bool {
@@ -64,7 +66,9 @@ pub struct MockStateStore {
 
 impl MockStateStore {
     pub fn new(initial: DeviceState) -> Self {
-        Self { state: Mutex::new(initial) }
+        Self {
+            state: Mutex::new(initial),
+        }
     }
 }
 

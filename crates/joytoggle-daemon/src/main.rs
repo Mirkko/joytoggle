@@ -26,10 +26,10 @@ async fn main() -> anyhow::Result<()> {
     info!("joytoggle-daemon starting");
 
     let daemon = JoyToggleDaemon {
-        toggler:     Arc::new(SysfsDeviceToggler),
+        toggler: Arc::new(SysfsDeviceToggler),
         state_store: Arc::new(FileStateStore),
-        scanner:     Arc::new(LinuxSysfsReader),
-        cache:       Arc::new(FileCacheStore::default()),
+        scanner: Arc::new(LinuxSysfsReader),
+        cache: Arc::new(FileCacheStore::default()),
     };
 
     let _conn = ConnectionBuilder::system()?

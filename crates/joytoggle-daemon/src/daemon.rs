@@ -4,8 +4,8 @@ use std::sync::Arc;
 use joytoggle_core::{
     Device, DeviceState, DeviceToggler, FileCacheStore, InterfaceId, StateStore, SysfsReader,
 };
-use zbus::{interface, proxy, Connection, message::Header};
 use zbus::zvariant::{OwnedValue, Value};
+use zbus::{interface, message::Header, proxy, Connection};
 
 const POLKIT_ACTION: &str = "org.joytoggle.daemon.manage-device";
 
@@ -26,27 +26,33 @@ trait PolkitAuthority {
 }
 
 async fn check_polkit_auth(conn: &Connection, sender: &str) -> zbus::fdo::Result<()> {
-    let dbus = zbus::fdo::DBusProxy::new(conn).await
+    let dbus = zbus::fdo::DBusProxy::new(conn)
+        .await
         .map_err(|e| zbus::fdo::Error::Failed(e.to_string()))?;
 
     let bus_name = zbus::names::BusName::try_from(sender)
         .map_err(|_| zbus::fdo::Error::InvalidArgs(format!("invalid sender: {sender:?}")))?;
-    let pid = dbus.get_connection_unix_process_id(bus_name).await
+    let pid = dbus
+        .get_connection_unix_process_id(bus_name)
+        .await
         .map_err(|e| zbus::fdo::Error::Failed(format!("could not get caller PID: {e}")))?;
 
     let mut subject_details: HashMap<String, OwnedValue> = HashMap::new();
     subject_details.insert(
         "pid".into(),
-        Value::U32(pid).try_to_owned()
+        Value::U32(pid)
+            .try_to_owned()
             .map_err(|e| zbus::fdo::Error::Failed(e.to_string()))?,
     );
     subject_details.insert(
         "start-time".into(),
-        Value::U64(0).try_to_owned()
+        Value::U64(0)
+            .try_to_owned()
             .map_err(|e| zbus::fdo::Error::Failed(e.to_string()))?,
     );
 
-    let polkit = PolkitAuthorityProxy::new(conn).await
+    let polkit = PolkitAuthorityProxy::new(conn)
+        .await
         .map_err(|e| zbus::fdo::Error::Failed(e.to_string()))?;
 
     let (authorized, _, _) = polkit
@@ -69,10 +75,10 @@ async fn check_polkit_auth(conn: &Connection, sender: &str) -> zbus::fdo::Result
 }
 
 pub struct JoyToggleDaemon {
-    pub toggler:     Arc<dyn DeviceToggler + Send + Sync>,
+    pub toggler: Arc<dyn DeviceToggler + Send + Sync>,
     pub state_store: Arc<dyn StateStore + Send + Sync>,
-    pub scanner:     Arc<dyn SysfsReader + Send + Sync>,
-    pub cache:       Arc<FileCacheStore>,
+    pub scanner: Arc<dyn SysfsReader + Send + Sync>,
+    pub cache: Arc<FileCacheStore>,
 }
 
 #[interface(name = "org.joytoggle.Daemon1")]
@@ -83,7 +89,8 @@ impl JoyToggleDaemon {
         #[zbus(header)] header: Header<'_>,
         iface_id: String,
     ) -> zbus::fdo::Result<()> {
-        let sender = header.sender()
+        let sender = header
+            .sender()
             .ok_or_else(|| zbus::fdo::Error::Failed("no sender in message header".into()))?;
         check_polkit_auth(conn, sender.as_str()).await?;
 
@@ -103,7 +110,8 @@ impl JoyToggleDaemon {
         #[zbus(header)] header: Header<'_>,
         iface_id: String,
     ) -> zbus::fdo::Result<()> {
-        let sender = header.sender()
+        let sender = header
+            .sender()
             .ok_or_else(|| zbus::fdo::Error::Failed("no sender in message header".into()))?;
         check_polkit_auth(conn, sender.as_str()).await?;
 
@@ -123,7 +131,8 @@ impl JoyToggleDaemon {
         #[zbus(header)] header: Header<'_>,
         state_json: String,
     ) -> zbus::fdo::Result<()> {
-        let sender = header.sender()
+        let sender = header
+            .sender()
             .ok_or_else(|| zbus::fdo::Error::Failed("no sender in message header".into()))?;
         check_polkit_auth(conn, sender.as_str()).await?;
 
@@ -138,17 +147,16 @@ impl JoyToggleDaemon {
     /// Mirrors the Python get_devices_with_cache() logic.
     async fn list_devices(&self) -> zbus::fdo::Result<String> {
         let mut live = self.scanner.read_devices();
-        let cached   = self.cache.load_cache();
-        let state    = self.state_store.load();
+        let cached = self.cache.load_cache();
+        let state = self.state_store.load();
 
-        let live_usb_paths: std::collections::HashSet<String> = live
-            .iter()
-            .filter_map(|d| d.usb_path.clone())
-            .collect();
+        let live_usb_paths: std::collections::HashSet<String> =
+            live.iter().filter_map(|d| d.usb_path.clone()).collect();
 
         // Append cached devices not currently in sysfs (disabled/unbound)
         for mut cd in cached {
-            let in_live = cd.usb_path
+            let in_live = cd
+                .usb_path
                 .as_ref()
                 .map(|p| live_usb_paths.contains(p))
                 .unwrap_or(false);
@@ -177,7 +185,6 @@ impl JoyToggleDaemon {
         // Persist updated cache (includes disabled devices so they survive reboots)
         let _ = self.cache.save_cache(&devices);
 
-        serde_json::to_string(&devices)
-            .map_err(|e| zbus::fdo::Error::Failed(e.to_string()))
+        serde_json::to_string(&devices).map_err(|e| zbus::fdo::Error::Failed(e.to_string()))
     }
 }
