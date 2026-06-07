@@ -6,8 +6,8 @@ use std::time::Duration;
 
 use dbus::JoyToggleDaemonProxyBlocking;
 use gpui::{
-    div, hsla, prelude::*, px, size, white, App, Application, Bounds, Context, FontWeight,
-    MouseButton, SharedString, Window, WindowBounds, WindowOptions,
+    div, ease_in_out, hsla, prelude::*, px, size, white, Animation, AnimationExt, App, Application,
+    Bounds, Context, FontWeight, MouseButton, SharedString, Window, WindowBounds, WindowOptions,
 };
 use joytoggle_core::{load_hidden, load_state, save_hidden, Device, DeviceType, InterfaceId};
 
@@ -349,8 +349,9 @@ impl Render for JoyToggleWindow {
                             )
                             .child("hide"),
                     )
-                    .child(
-                        // Toggle switch
+                    .child({
+                        // Toggle switch — thumb slides 20px (44 - 2*3padding - 18thumb)
+                        let anim_id = SharedString::from(format!("toggle-{i}-{enabled}"));
                         div()
                             .w(px(44.0))
                             .h(px(24.0))
@@ -378,9 +379,21 @@ impl Render for JoyToggleWindow {
                                     .h(px(18.0))
                                     .rounded_full()
                                     .bg(white())
-                                    .when(enabled, |d| d.ml_auto()),
-                            ),
-                    )
+                                    .with_animation(
+                                        anim_id,
+                                        Animation::new(Duration::from_millis(150))
+                                            .with_easing(ease_in_out),
+                                        move |thumb, delta| {
+                                            let pos = if enabled {
+                                                delta * 20.0
+                                            } else {
+                                                (1.0 - delta) * 20.0
+                                            };
+                                            thumb.ml(px(pos))
+                                        },
+                                    ),
+                            )
+                    })
             })
             .collect();
 
