@@ -36,6 +36,15 @@ fn call_toggle(iface_id: &str, enable: bool) -> bool {
     .is_ok()
 }
 
+// Spawn a plain OS thread for a blocking D-Bus toggle so we never call
+// zbus::blocking from inside GPUI's worker threads (which have no tokio reactor).
+fn spawn_toggle(iface_id: String, enable: bool, after: impl FnOnce(bool) + Send + 'static) {
+    std::thread::spawn(move || {
+        let ok = call_toggle(&iface_id, enable);
+        after(ok);
+    });
+}
+
 // ── App state ─────────────────────────────────────────────────────────────────
 
 struct DeviceItem {
@@ -352,6 +361,7 @@ impl Render for JoyToggleWindow {
                     .child({
                         // Toggle switch — thumb slides 20px (44 - 2*3padding - 18thumb)
                         let anim_id = SharedString::from(format!("toggle-{i}-{enabled}"));
+                        let pending = self.pending_refresh.clone();
                         div()
                             .w(px(44.0))
                             .h(px(24.0))
@@ -367,10 +377,17 @@ impl Render for JoyToggleWindow {
                                     let want_on = !this.devices[i].enabled;
                                     let iface =
                                         this.devices[i].device.iface_id().as_str().to_owned();
-                                    if call_toggle(&iface, want_on) {
-                                        this.devices[i].enabled = want_on;
-                                    }
+                                    // Optimistic UI update
+                                    this.devices[i].enabled = want_on;
                                     cx.notify();
+                                    // Blocking D-Bus call on a plain OS thread (not GPUI worker)
+                                    let bg = pending.clone();
+                                    spawn_toggle(iface, want_on, move |ok| {
+                                        if ok {
+                                            // Trigger a refresh so state syncs from daemon
+                                            *bg.lock().unwrap() = Some(fetch_devices());
+                                        }
+                                    });
                                 }),
                             )
                             .child(
@@ -509,11 +526,16 @@ impl Render for JoyToggleWindow {
                                         let ids: Vec<_> = this.visible_devices().into_iter()
                                             .map(|(_, d)| d.device.iface_id().as_str().to_owned())
                                             .collect();
-                                        for id in &ids { call_toggle(id, true); }
+                                        // Optimistic UI update
                                         for d in this.devices.iter_mut() {
                                             if !d.hidden { d.enabled = true; }
                                         }
                                         cx.notify();
+                                        let bg = this.pending_refresh.clone();
+                                        std::thread::spawn(move || {
+                                            for id in &ids { call_toggle(id, true); }
+                                            *bg.lock().unwrap() = Some(fetch_devices());
+                                        });
                                     }))
                                     .child("Enable All"),
                             )
@@ -525,11 +547,16 @@ impl Render for JoyToggleWindow {
                                         let ids: Vec<_> = this.visible_devices().into_iter()
                                             .map(|(_, d)| d.device.iface_id().as_str().to_owned())
                                             .collect();
-                                        for id in &ids { call_toggle(id, false); }
+                                        // Optimistic UI update
                                         for d in this.devices.iter_mut() {
                                             if !d.hidden { d.enabled = false; }
                                         }
                                         cx.notify();
+                                        let bg = this.pending_refresh.clone();
+                                        std::thread::spawn(move || {
+                                            for id in &ids { call_toggle(id, false); }
+                                            *bg.lock().unwrap() = Some(fetch_devices());
+                                        });
                                     }))
                                     .child("Disable All"),
                             ),
