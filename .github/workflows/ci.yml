@@ -31,8 +31,10 @@ jobs:
             libx11-dev libxcb1-dev pkg-config
       - name: clippy
         run: cargo clippy --all-targets --all-features -- -D warnings
+      - name: Install cargo-deny
+        run: cargo install cargo-deny --locked
       - name: deny
-        uses: EmbarkStudios/cargo-deny-action@v2
+        run: cargo deny check
 
   test:
     name: Test
