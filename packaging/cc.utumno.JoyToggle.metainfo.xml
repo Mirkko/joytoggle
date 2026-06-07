@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>cc.utumno.JoyToggle</id>
+
+  <name>JoyToggle</name>
+  <summary>Enable or disable joystick devices without unplugging</summary>
+
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>GPL-3.0-or-later</project_license>
+
+  <description>
+    <p>
+      JoyToggle lets you bind and unbind joystick, throttle, rudder, and other
+      HID game controllers at the kernel level — no unplugging required.
+    </p>
+    <p>
+      Built for sim pilots running HOTAS setups who need to switch between
+      different controller configurations or temporarily disable devices
+      without touching the hardware.
+    </p>
+    <ul>
+      <li>Toggle individual devices on or off with a single click</li>
+      <li>Enable All / Disable All for quick profile switching</li>
+      <li>Persistent state across reboots — devices restore to their last state on boot</li>
+      <li>Auto-detects device type (joystick, throttle, rudder pedals, gamepad)</li>
+      <li>Hide auto-detected clutter (keyboards mis-detected as HID devices)</li>
+      <li>Live auto-refresh when devices are plugged or unplugged</li>
+    </ul>
+    <p>
+      Uses a D-Bus system daemon with polkit authentication — no passwordless
+      sudo, no persistent root process in your session.
+    </p>
+  </description>
+
+  <launchable type="desktop-id">joytoggle.desktop</launchable>
+
+  <url type="homepage">https://mirkko.github.io/joytoggle</url>
+  <url type="bugtracker">https://github.com/Mirkko/joytoggle/issues</url>
+  <url type="vcs-browser">https://github.com/Mirkko/joytoggle</url>
+
+  <developer id="cc.utumno">
+    <name>Mikodzi</name>
+  </developer>
+
+  <branding>
+    <color type="primary" scheme_preference="dark">#1a1a1a</color>
+    <color type="primary" scheme_preference="light">#f0f0f0</color>
+  </branding>
+
+  <content_rating type="oars-1.1" />
+
+  <releases>
+    <release version="0.1.0" date="2026-06-07">
+      <description>
+        <p>Initial release of the Rust rewrite.</p>
+        <ul>
+          <li>Complete rewrite from Python/GTK4 to Rust with a GPUI frontend</li>
+          <li>D-Bus system daemon replaces pkexec — polkit authentication, no persistent root process</li>
+          <li>Smooth toggle animations</li>
+          <li>State persistence across reboots</li>
+          <li>Enable All / Disable All</li>
+          <li>Hidden devices section with user-controlled and auto-hide</li>
+          <li>Live auto-refresh on device plug/unplug</li>
+        </ul>
+      </description>
+    </release>
+  </releases>
+
+  <screenshots>
+    <screenshot type="default">
+      <caption>Main window showing connected sim controllers</caption>
+      <image>https://mirkko.github.io/joytoggle/screenshot.png</image>
+    </screenshot>
+  </screenshots>
+
+  <supports>
+    <control>pointing</control>
+    <control>keyboard</control>
+  </supports>
+
+  <requires>
+    <display_length compare="ge">360</display_length>
+  </requires>
+
+  <categories>
+    <category>Game</category>
+    <category>Utility</category>
+  </categories>
+
+  <keywords>
+    <keyword>joystick</keyword>
+    <keyword>gamepad</keyword>
+    <keyword>HOTAS</keyword>
+    <keyword>flight sim</keyword>
+    <keyword>controller</keyword>
+    <keyword>input device</keyword>
+    <keyword>USB</keyword>
+  </keywords>
+</component>
