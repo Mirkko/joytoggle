@@ -39,6 +39,7 @@ assets = [
     ["target/release/joytoggle-daemon", "usr/bin/joytoggle-daemon", "755"],
     ["../../packaging/systemd/joytoggle-daemon.service", "lib/systemd/system/joytoggle-daemon.service", "644"],
     ["../../packaging/polkit/org.joytoggle.daemon.policy", "usr/share/polkit-1/actions/org.joytoggle.daemon.policy", "644"],
+    ["../../packaging/dbus/org.joytoggle.Daemon.conf", "etc/dbus-1/system.d/org.joytoggle.Daemon.conf", "644"],
 ]
 
 [package.metadata.generate-rpm]
@@ -61,4 +62,9 @@ mode   = "644"
 [[package.metadata.generate-rpm.assets]]
 source = "packaging/polkit/org.joytoggle.daemon.policy"
 dest   = "/usr/share/polkit-1/actions/org.joytoggle.daemon.policy"
+mode   = "644"
+
+[[package.metadata.generate-rpm.assets]]
+source = "packaging/dbus/org.joytoggle.Daemon.conf"
+dest   = "/etc/dbus-1/system.d/org.joytoggle.Daemon.conf"
 mode   = "644"

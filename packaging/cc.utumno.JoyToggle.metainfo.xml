@@ -68,7 +68,7 @@
 
   <screenshots>
     <screenshot type="default">
-      <caption>Main window showing connected sim controllers</caption>
+      <caption>JoyToggle main window — enable or disable HOTAS devices system-wide</caption>
       <image>https://mirkko.github.io/joytoggle/screenshot.png</image>
     </screenshot>
   </screenshots>
