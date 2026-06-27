@@ -312,6 +312,8 @@ impl Render for JoyToggleWindow {
                     hsla(0.0, 0.0, 0.22, 1.0)
                 };
                 let iface_disp = iface_id.clone();
+                let iface_id_hide = iface_id.clone();
+                let iface_id_toggle = iface_id.clone();
 
                 div()
                     .flex()
@@ -365,7 +367,7 @@ impl Render for JoyToggleWindow {
                             .on_mouse_down(
                                 MouseButton::Left,
                                 cx.listener(move |this, _, _, cx| {
-                                    this.manually_hidden.insert(iface_id.clone());
+                                    this.manually_hidden.insert(iface_id_hide.clone());
                                     if let Some(d) = this.devices.get_mut(i) {
                                         d.hidden = true;
                                     }
@@ -378,10 +380,11 @@ impl Render for JoyToggleWindow {
                     .child({
                         // Toggle switch — thumb slides 20px (44 - 2*3padding - 18thumb)
                         // Pending state: amber track, thumb fixed at mid-travel (10px)
-                        let anim_id = SharedString::from(format!("toggle-{i}-{enabled}-{is_pending}"));
+                        let anim_id =
+                            SharedString::from(format!("toggle-{i}-{enabled}-{is_pending}"));
                         let pending_ref = self.pending_refresh.clone();
                         let toggle_res = self.toggle_results.clone();
-                        let iface_id_toggle = iface_id.clone();
+                        let iface_id_toggle = iface_id_toggle.clone();
                         div()
                             .w(px(44.0))
                             .h(px(24.0))
