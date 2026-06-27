@@ -1,0 +1,22 @@
+#!/bin/sh
+set -e
+
+systemctl daemon-reload
+
+# Pre-create the state file as user-owned so the app can write it without
+# a second pkexec call (fixes KDE double password prompt).
+if [ "$1" = "configure" ]; then
+    if [ ! -f /var/lib/joytoggle/state.json ]; then
+        mkdir -p /var/lib/joytoggle
+        touch /var/lib/joytoggle/state.json
+        _OWNER=$(logname 2>/dev/null || echo "")
+        if [ -n "$_OWNER" ] && id "$_OWNER" &>/dev/null; then
+            chown "$_OWNER:$_OWNER" /var/lib/joytoggle
+            chown "$_OWNER:$_OWNER" /var/lib/joytoggle/state.json 2>/dev/null || true
+        fi
+    fi
+fi
+
+systemctl enable --now joytoggle-daemon.service 2>/dev/null || true
+
+exit 0

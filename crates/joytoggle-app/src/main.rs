@@ -56,9 +56,11 @@ struct DeviceItem {
 struct JoyToggleWindow {
     devices: Vec<DeviceItem>,
     manually_hidden: HashSet<String>, // iface IDs manually hidden by user
+    pending_ifaces: HashSet<String>,  // iface IDs awaiting D-Bus toggle result
     show_hidden: bool,                // hidden section expanded/collapsed
     daemon_error: Option<String>,
     pending_refresh: Arc<Mutex<Option<Vec<Device>>>>,
+    toggle_results: Arc<Mutex<Vec<(String, bool)>>>, // (iface_id, ok) from toggle threads
 }
 
 impl JoyToggleWindow {
@@ -81,6 +83,7 @@ impl JoyToggleWindow {
 
         let pending = Arc::new(Mutex::new(None::<Vec<Device>>));
         let bg = pending.clone();
+        let toggle_results: Arc<Mutex<Vec<(String, bool)>>> = Arc::new(Mutex::new(Vec::new()));
 
         // Background thread: re-fetch every 2s
         std::thread::spawn(move || loop {
@@ -88,12 +91,21 @@ impl JoyToggleWindow {
             *bg.lock().unwrap() = Some(fetch_devices());
         });
 
-        // GPUI timer: drain pending refresh into view state
+        // GPUI timer: drain toggle results + pending refresh into view state
         cx.spawn(async move |weak, cx| loop {
             cx.background_executor()
                 .timer(Duration::from_millis(750))
                 .await;
             weak.update(cx, |view, cx| {
+                // Clear pending_ifaces for any completed toggle threads
+                let finished: Vec<_> = view.toggle_results.lock().unwrap().drain(..).collect();
+                if !finished.is_empty() {
+                    for (iface_id, _ok) in finished {
+                        view.pending_ifaces.remove(&iface_id);
+                    }
+                    cx.notify();
+                }
+
                 let mut guard = view.pending_refresh.lock().unwrap();
                 if let Some(fresh) = guard.take() {
                     if !fresh.is_empty() {
@@ -145,9 +157,11 @@ impl JoyToggleWindow {
                 })
                 .collect(),
             manually_hidden,
+            pending_ifaces: HashSet::new(),
             show_hidden: false,
             daemon_error: error,
             pending_refresh: pending,
+            toggle_results,
         }
     }
 
@@ -279,17 +293,20 @@ impl Render for JoyToggleWindow {
                 let name = item.device.name.clone();
                 let dtype = item.device.device_type.clone();
                 let iface_id = item.device.iface_id().as_str().to_owned();
+                let is_pending = self.pending_ifaces.contains(&iface_id);
                 let bg = if enabled {
                     hsla(0.0, 0.0, 0.13, 1.0)
                 } else {
                     hsla(0.0, 0.0, 0.09, 1.0)
                 };
-                let name_color = if enabled {
+                let name_color = if enabled || is_pending {
                     hsla(0.0, 0.0, 0.92, 1.0)
                 } else {
                     hsla(0.0, 0.0, 0.4, 1.0)
                 };
-                let toggle_track = if enabled {
+                let toggle_track = if is_pending {
+                    hsla(0.08, 0.8, 0.45, 1.0) // amber while polkit dialog open
+                } else if enabled {
                     hsla(0.38, 0.6, 0.38, 1.0)
                 } else {
                     hsla(0.0, 0.0, 0.22, 1.0)
@@ -360,8 +377,11 @@ impl Render for JoyToggleWindow {
                     )
                     .child({
                         // Toggle switch — thumb slides 20px (44 - 2*3padding - 18thumb)
-                        let anim_id = SharedString::from(format!("toggle-{i}-{enabled}"));
-                        let pending = self.pending_refresh.clone();
+                        // Pending state: amber track, thumb fixed at mid-travel (10px)
+                        let anim_id = SharedString::from(format!("toggle-{i}-{enabled}-{is_pending}"));
+                        let pending_ref = self.pending_refresh.clone();
+                        let toggle_res = self.toggle_results.clone();
+                        let iface_id_toggle = iface_id.clone();
                         div()
                             .w(px(44.0))
                             .h(px(24.0))
@@ -374,19 +394,20 @@ impl Render for JoyToggleWindow {
                             .on_mouse_down(
                                 MouseButton::Left,
                                 cx.listener(move |this, _, _, cx| {
+                                    if this.pending_ifaces.contains(&iface_id_toggle) {
+                                        return; // ignore click while already pending
+                                    }
                                     let want_on = !this.devices[i].enabled;
-                                    let iface =
-                                        this.devices[i].device.iface_id().as_str().to_owned();
-                                    // Optimistic UI update
-                                    this.devices[i].enabled = want_on;
+                                    let iface = iface_id_toggle.clone();
+                                    // Mark as pending — thumb holds mid-travel until daemon confirms
+                                    this.pending_ifaces.insert(iface.clone());
                                     cx.notify();
-                                    // Blocking D-Bus call on a plain OS thread (not GPUI worker)
-                                    let bg = pending.clone();
+                                    let bg = pending_ref.clone();
+                                    let tr = toggle_res.clone();
+                                    let iface_res = iface.clone();
                                     spawn_toggle(iface, want_on, move |ok| {
-                                        if ok {
-                                            // Trigger a refresh so state syncs from daemon
-                                            *bg.lock().unwrap() = Some(fetch_devices());
-                                        }
+                                        tr.lock().unwrap().push((iface_res, ok));
+                                        *bg.lock().unwrap() = Some(fetch_devices());
                                     });
                                 }),
                             )
@@ -401,7 +422,9 @@ impl Render for JoyToggleWindow {
                                         Animation::new(Duration::from_millis(150))
                                             .with_easing(ease_in_out),
                                         move |thumb, delta| {
-                                            let pos = if enabled {
+                                            let pos = if is_pending {
+                                                10.0 // hold at mid-travel
+                                            } else if enabled {
                                                 delta * 20.0
                                             } else {
                                                 (1.0 - delta) * 20.0
@@ -526,14 +549,15 @@ impl Render for JoyToggleWindow {
                                         let ids: Vec<_> = this.visible_devices().into_iter()
                                             .map(|(_, d)| d.device.iface_id().as_str().to_owned())
                                             .collect();
-                                        // Optimistic UI update
-                                        for d in this.devices.iter_mut() {
-                                            if !d.hidden { d.enabled = true; }
-                                        }
+                                        for id in &ids { this.pending_ifaces.insert(id.clone()); }
                                         cx.notify();
                                         let bg = this.pending_refresh.clone();
+                                        let tr = this.toggle_results.clone();
                                         std::thread::spawn(move || {
                                             for id in &ids { call_toggle(id, true); }
+                                            let mut results = tr.lock().unwrap();
+                                            for id in &ids { results.push((id.clone(), true)); }
+                                            drop(results);
                                             *bg.lock().unwrap() = Some(fetch_devices());
                                         });
                                     }))
@@ -547,14 +571,15 @@ impl Render for JoyToggleWindow {
                                         let ids: Vec<_> = this.visible_devices().into_iter()
                                             .map(|(_, d)| d.device.iface_id().as_str().to_owned())
                                             .collect();
-                                        // Optimistic UI update
-                                        for d in this.devices.iter_mut() {
-                                            if !d.hidden { d.enabled = false; }
-                                        }
+                                        for id in &ids { this.pending_ifaces.insert(id.clone()); }
                                         cx.notify();
                                         let bg = this.pending_refresh.clone();
+                                        let tr = this.toggle_results.clone();
                                         std::thread::spawn(move || {
                                             for id in &ids { call_toggle(id, false); }
+                                            let mut results = tr.lock().unwrap();
+                                            for id in &ids { results.push((id.clone(), false)); }
+                                            drop(results);
                                             *bg.lock().unwrap() = Some(fetch_devices());
                                         });
                                     }))

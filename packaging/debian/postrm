@@ -1,0 +1,12 @@
+#!/bin/sh
+set -e
+
+case "$1" in
+    purge|remove)
+        systemctl disable --now joytoggle-daemon.service 2>/dev/null || true
+        ;;
+esac
+
+systemctl daemon-reload 2>/dev/null || true
+
+exit 0

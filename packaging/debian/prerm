@@ -1,0 +1,10 @@
+#!/bin/sh
+set -e
+
+case "$1" in
+    upgrade|remove)
+        systemctl stop joytoggle-daemon.service 2>/dev/null || true
+        ;;
+esac
+
+exit 0
